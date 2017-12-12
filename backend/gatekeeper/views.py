@@ -134,7 +134,9 @@ def index(request, path):
     content_type = r.headers['Content-Type'] if 'Content-Type' in r.headers else ''
 
     # If the content is JSON fix the urls to point to this view, not directly to the STS
-    if cgi.parse_header(content_type)[0] == 'application/json':
+    # (Filter 404 out because FraunhoferIOSB/SensorThingsServer will return 404 with the
+    # content type application/json with the content "Nothing found".)
+    if cgi.parse_header(content_type)[0] == 'application/json' and r.status_code != 404:
         data = json.loads(content, object_pairs_hook=OrderedDict, encoding=r.encoding)
 
         def fix_urls(visit_path, key, value):
