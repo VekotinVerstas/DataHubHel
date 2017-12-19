@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'datahubhel',
+    'gatekeeper',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -121,3 +122,5 @@ REST_FRAMEWORK = {
 }
 
 CORS_ORIGIN_ALLOW_ALL = True
+
+GATEKEEPER_STS_BASE_URL = 'http://localhost:8080/SensorThingsService'
