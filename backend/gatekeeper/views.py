@@ -1,29 +1,31 @@
 import cgi
 import json
 from collections import OrderedDict
+from wsgiref.util import _hoppish
 
 import requests
 from boltons.iterutils import remap
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.http import HttpResponse
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.authentication import (
-    BasicAuthentication, SessionAuthentication)
-from rest_framework.decorators import authentication_classes
+from guardian.shortcuts import assign_perm
 
 from gatekeeper.models import Datastream, Thing
 from gatekeeper.utils import parse_sta_url
 
 
 @csrf_exempt
-@authentication_classes((SessionAuthentication, BasicAuthentication))
 def index(request, path):
     """This is a quick and dirty proof of concept for proxying the SensorThings API queries to the real STA server.
 
-    Additionally when creating Things or Datastreams, this view will create instances for them in the local database.
+    Additionally when creating Things or Datastreams, this view will create instances of them in the local database.
     """
     user = request.user
+    if 'token' in request.GET:
+        user = authenticate(request, token=request.GET.get('token'))
+
     self_base_url = request.build_absolute_uri(reverse('gatekeeper:index', kwargs={
         'path': ''
     })).rstrip('/')
@@ -50,7 +52,7 @@ def index(request, path):
     # TODO: access control
     if request.method == 'GET':
         # TODO: validate GET parameters
-        request_arguments['params'] = request.GET
+        request_arguments['params'] = {k: v for k, v in request.GET.items() if k.startswith('$')}
     elif request.method in ['POST', 'PUT', 'PATCH']:
         # if not user.is_authenticated:
         #     raise PermissionDenied
@@ -126,6 +128,10 @@ def index(request, path):
 
                         instance.save()
 
+                        if user.is_authenticated:
+                            assign_perm('subscribe_datastream', user, instance)
+                            assign_perm('publish_datastream', user, instance)
+
                     except Thing.DoesNotExist:
                         # TODO: handle error
                         pass
@@ -152,7 +158,7 @@ def index(request, path):
     response = HttpResponse(status=r.status_code, reason=r.reason, content_type=content_type, content=content)
 
     for header_name in r.headers:
-        if header_name.lower() in ['location', 'content-length', 'transfer-encoding']:
+        if header_name.lower() in ['location', 'content-length'] or _hoppish(header_name.lower()):
             continue
 
         response[header_name] = r.headers[header_name]
