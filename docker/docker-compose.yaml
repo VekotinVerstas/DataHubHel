@@ -1,0 +1,13 @@
+version: '3'
+services:
+  sts:
+    build: sts
+    ports:
+    - "8080:8080"
+    - "11883:11883"
+    links:
+    - mqttbroker
+  mqttbroker:
+    build: mqttbroker
+    ports:
+    - "1883:1883"
