@@ -4,5 +4,5 @@ from . import views
 
 app_name = 'gatekeeper'
 urlpatterns = [
-    url(r'^(?P<path>.*)$', views.index, name='index'),
+    url(r'^(?P<path>.*)$', views.Gatekeeper.as_view(), name='index')
 ]

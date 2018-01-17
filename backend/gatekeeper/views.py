@@ -1,4 +1,3 @@
-import cgi
 import json
 from collections import OrderedDict
 from wsgiref.util import _hoppish
@@ -6,70 +5,80 @@ from wsgiref.util import _hoppish
 import requests
 from boltons.iterutils import remap
 from django.conf import settings
-from django.contrib.auth import authenticate
-from django.http import HttpResponse
 from django.urls import reverse
-from django.views.decorators.csrf import csrf_exempt
 from guardian.shortcuts import assign_perm
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from gatekeeper.models import Datastream, Thing
-from gatekeeper.utils import parse_sta_url
+from .models import Datastream, Thing
+from .utils import parse_sta_url
 
 
-@csrf_exempt
-def index(request, path):
-    """This is a quick and dirty proof of concept for proxying the SensorThings API queries to the real STA server.
+class Gatekeeper(APIView):
+    sts_self_base_url = None
+    sts_url = None
+    sts_headers = {}
+    sts_arguments = {}
+    sts_content_type = ''
 
-    Additionally when creating Things or Datastreams, this view will create instances of them in the local database.
-    """
-    user = request.user
-    if 'token' in request.GET:
-        user = authenticate(request, token=request.GET.get('token'))
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        path = self.kwargs.pop('path')
 
-    self_base_url = request.build_absolute_uri(reverse('gatekeeper:index', kwargs={
-        'path': ''
-    })).rstrip('/')
+        self.sts_self_base_url = request.build_absolute_uri(reverse('gatekeeper:index', kwargs={
+            'path': ''
+        })).rstrip('/')
 
-    # TODO: validate path
-    url = '{}/{}'.format(settings.GATEKEEPER_STS_BASE_URL, path)
+        # TODO: validate path
+        self.sts_url = '{}/{}'.format(settings.GATEKEEPER_STS_BASE_URL, path)
 
-    request_arguments = {
-        'headers': {
+        self.sts_arguments['headers'] = self.filter_valid_sts_headers(request)
+
+    def filter_valid_sts_headers(self, request):
+        headers = {
             'Content-Type': request.META['CONTENT_TYPE'],
-        },
-    }
+        }
 
-    for header in request.META:
-        if not header.startswith('HTTP_'):
-            continue
+        for header in request.META:
+            if not header.startswith('HTTP_'):
+                continue
 
-        header_name = header[5:]
-        if header_name not in ['ACCEPT', 'EXPECT', 'USER_AGENT']:
-            continue
+            header_name = header[5:]
+            if header_name not in ['ACCEPT', 'EXPECT', 'USER_AGENT']:
+                continue
 
-        request_arguments['headers'][header_name] = request.META[header]
+            headers[header_name] = request.META[header]
+        return headers
 
-    # TODO: access control
-    if request.method == 'GET':
-        # TODO: validate GET parameters
-        request_arguments['params'] = {k: v for k, v in request.GET.items() if k.startswith('$')}
-    elif request.method in ['POST', 'PUT', 'PATCH']:
-        # if not user.is_authenticated:
-        #     raise PermissionDenied
+    def get(self, request):
+        self.sts_arguments['params'] = {k: v for k, v in request.query_params.items() if k.startswith('$')}
+        return self.handle_request(request)
 
-        request_arguments['data'] = request.body
+    def post(self, request):
+        print("Data: \n", self.request.data)
+        self.sts_arguments['json'] = self.request.data
+        return self.handle_request(request)
 
-    # TODO: error checks
-    r = requests.request(request.method, url, **request_arguments)
+    def put(self, request):
+        self.sts_arguments['json'] = self.request.data
+        return self.handle_request(request)
 
-    if r.status_code == 201 and 'location' in r.headers:
+    def patch(self, request):
+        self.sts_arguments['json'] = self.request.data
+        return self.handle_request(request)
+
+    def delete(self, request):
+        self.sts_arguments['params'] = {k: v for k, v in request.query_params.items() if k.startswith('$')}
+        return self.handle_request(request)
+
+    def create(self, request, sts_response):
         # TODO: error checks
-        entity_request = requests.get(r.headers['location'])
+        entity_request = requests.get(sts_response.headers['location'])
         created_object_data = entity_request.json()
 
         if '@iot.id' in created_object_data and '@iot.selfLink' in created_object_data:
             self_link = created_object_data['@iot.selfLink'].replace(
-                settings.GATEKEEPER_STS_BASE_URL, self_base_url)
+                settings.GATEKEEPER_STS_BASE_URL, self.sts_self_base_url)
 
             # TODO: make prefix configurable
             parse_result = parse_sta_url(self_link, prefix='/api/v1.0')
@@ -82,15 +91,13 @@ def index(request, path):
                     description=created_object_data.get('description')
                 )
 
-                if user.is_authenticated:
-                    instance.user = user
-                    instance.save()
+                instance.user = request.user
+                instance.save()
 
                 # Query datastreams and save them to the database
                 if 'Datastreams@iot.navigationLink' in created_object_data:
                     # TODO: make version prefix configurable
-                    datastreams_url = '{}/v1.0/{}'.format(settings.GATEKEEPER_STS_BASE_URL,
-                                                          created_object_data['Datastreams@iot.navigationLink'])
+                    datastreams_url = created_object_data['Datastreams@iot.navigationLink']
                     # TODO: error checks
                     datastreams_request = requests.get(datastreams_url)
                     datastreams_data = datastreams_request.json()
@@ -100,7 +107,7 @@ def index(request, path):
                                 sts_id=ds.get('@iot.id'),
                                 name=ds.get('name'),
                                 description=ds.get('description'),
-                                user=user if user.is_authenticated else None,
+                                user=request.user,
                                 thing=instance,
                             )
 
@@ -123,48 +130,68 @@ def index(request, path):
                         instance.name = created_object_data.get('name')
                         instance.description = created_object_data.get('description')
 
-                        if user.is_authenticated:
-                            instance.user = user
-
+                        instance.user = request.user
                         instance.save()
 
-                        if user.is_authenticated:
-                            assign_perm('subscribe_datastream', user, instance)
-                            assign_perm('publish_datastream', user, instance)
+                        assign_perm('subscribe_datastream', request.user, instance)
+                        assign_perm('publish_datastream', request.user, instance)
 
                     except Thing.DoesNotExist:
                         # TODO: handle error
                         pass
 
-    content = r.content
-    content_type = r.headers['Content-Type'] if 'Content-Type' in r.headers else ''
+    def handle_request(self, request):
+        sts_response = requests.request(request.method, self.sts_url, **self.sts_arguments)
+        status_code = sts_response.status_code
+        content_type = sts_response.headers['Content-Type'] if 'Content-Type' in sts_response.headers else ''
 
-    # If the content is JSON fix the urls to point to this view, not directly to the STS
-    # (Filter 404 out because FraunhoferIOSB/SensorThingsServer will return 404 with the
-    # content type application/json with the content "Nothing found".)
-    if cgi.parse_header(content_type)[0] == 'application/json' and r.status_code != 404:
-        data = json.loads(content, object_pairs_hook=OrderedDict, encoding=r.encoding)
+        response = Response(content_type=content_type, status=sts_response.status_code)
 
+        if status_code == 404 or status_code >= 500:
+            response.data = sts_response.content
+            return response
+
+        if status_code == 201 and 'location' in sts_response.headers:
+            self.create(request, sts_response)
+
+        try:
+            data = sts_response.json(object_pairs_hook=OrderedDict, encoding=sts_response.encoding)
+            data = self.remap_response_content_urls(data)
+            response.data = data
+        except json.decoder.JSONDecodeError:
+            response.data = sts_response.content
+
+        headers = self.remap_response_headers(sts_response.headers)
+        if headers:
+            for name, value in headers.items():
+                response[name] = value
+
+        return response
+
+    def remap_response_content_urls(self, data):
         def fix_urls(visit_path, key, value):
             if isinstance(key, str) and any([k in key for k in ['url', 'Link']]):
-                return key, value.replace(settings.GATEKEEPER_STS_BASE_URL, self_base_url)
+                return key, value.replace(settings.GATEKEEPER_STS_BASE_URL, self.sts_self_base_url)
 
             return key, value
 
-        data = remap(data, visit=fix_urls)
+        remapped_data = remap(data, visit=fix_urls)
 
-        content = json.dumps(data, indent=4, ensure_ascii=False)
+        return remapped_data
 
-    response = HttpResponse(status=r.status_code, reason=r.reason, content_type=content_type, content=content)
+    def remap_response_headers(self, headers):
+        remapped_headers = {}
 
-    for header_name in r.headers:
-        if header_name.lower() in ['location', 'content-length'] or _hoppish(header_name.lower()):
-            continue
+        for header_name in headers:
+            if header_name.lower() in ['location', 'content-length'] or _hoppish(header_name.lower()):
+                continue
 
-        response[header_name] = r.headers[header_name]
+            remapped_headers[header_name] = headers[header_name]
 
-    # Rewrite location header url
-    if 'location' in r.headers and r.headers['location'].startswith(settings.GATEKEEPER_STS_BASE_URL):
-        response['Location'] = r.headers['location'].replace(settings.GATEKEEPER_STS_BASE_URL, self_base_url)
+        # Rewrite location header url
+        location_header = headers.get('location', None)
+        if location_header and location_header.startswith(settings.GATEKEEPER_STS_BASE_URL):
+            remapped_headers['Location'] = location_header.replace(settings.GATEKEEPER_STS_BASE_URL,
+                                                                   self.sts_self_base_url)
 
-    return response
+        return remapped_headers
