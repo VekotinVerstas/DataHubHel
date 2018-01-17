@@ -68,9 +68,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'raven.contrib.django.raven_compat',
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
+    'guardian',
     'datahubhel',
     'gatekeeper',
+    'mqttauth',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -107,6 +110,12 @@ AUTH_PASSWORD_VALIDATORS = [] if DEBUG else [
         'CommonPasswordValidator',
         'NumericPasswordValidator',
     ]
+]
+
+AUTHENTICATION_BACKENDS = [
+    'gatekeeper.backends.TokenBackend',
+    'django.contrib.auth.backends.ModelBackend',
+    'guardian.backends.ObjectPermissionBackend',
 ]
 
 REST_FRAMEWORK = {
