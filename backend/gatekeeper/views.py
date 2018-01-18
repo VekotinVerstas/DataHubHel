@@ -15,6 +15,11 @@ from .utils import parse_sta_url
 
 
 class Gatekeeper(APIView):
+    """
+    Gatekeeper between DataHubHel and STS
+
+    # TODO: access control
+    """
     sts_self_base_url = None
     sts_url = None
     sts_headers = {}
@@ -33,6 +38,7 @@ class Gatekeeper(APIView):
         self.sts_url = '{}/{}'.format(settings.GATEKEEPER_STS_BASE_URL, path)
 
         self.sts_arguments['headers'] = self.filter_valid_sts_headers(request)
+        self.sts_arguments['params'] = self.filter_valid_sts_arguments(request)
 
     def filter_valid_sts_headers(self, request):
         headers = {
@@ -50,12 +56,13 @@ class Gatekeeper(APIView):
             headers[header_name] = request.META[header]
         return headers
 
+    def filter_valid_sts_arguments(self, request):
+        return {k: v for k, v in request.query_params.items() if k.startswith('$')}
+
     def get(self, request):
-        self.sts_arguments['params'] = {k: v for k, v in request.query_params.items() if k.startswith('$')}
         return self.handle_request(request)
 
     def post(self, request):
-        print("Data: \n", self.request.data)
         self.sts_arguments['json'] = self.request.data
         return self.handle_request(request)
 
@@ -68,7 +75,12 @@ class Gatekeeper(APIView):
         return self.handle_request(request)
 
     def delete(self, request):
-        self.sts_arguments['params'] = {k: v for k, v in request.query_params.items() if k.startswith('$')}
+        return self.handle_request(request)
+
+    def options(self, request, *args, **kwargs):
+        return self.handle_request(request)
+
+    def head(self, request):
         return self.handle_request(request)
 
     def create(self, request, sts_response):
@@ -154,12 +166,7 @@ class Gatekeeper(APIView):
         if status_code == 201 and 'location' in sts_response.headers:
             self.create(request, sts_response)
 
-        try:
-            data = sts_response.json(object_pairs_hook=OrderedDict, encoding=sts_response.encoding)
-            data = self.remap_response_content_urls(data)
-            response.data = data
-        except json.decoder.JSONDecodeError:
-            response.data = sts_response.content
+        response.data = sts_response.content
 
         headers = self.remap_response_headers(sts_response.headers)
         if headers:
@@ -167,17 +174,6 @@ class Gatekeeper(APIView):
                 response[name] = value
 
         return response
-
-    def remap_response_content_urls(self, data):
-        def fix_urls(visit_path, key, value):
-            if isinstance(key, str) and any([k in key for k in ['url', 'Link']]):
-                return key, value.replace(settings.GATEKEEPER_STS_BASE_URL, self.sts_self_base_url)
-
-            return key, value
-
-        remapped_data = remap(data, visit=fix_urls)
-
-        return remapped_data
 
     def remap_response_headers(self, headers):
         remapped_headers = {}
