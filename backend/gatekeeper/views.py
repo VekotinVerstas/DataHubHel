@@ -1,6 +1,6 @@
 import json
 from collections import OrderedDict
-from wsgiref.util import _hoppish
+from wsgiref.util import is_hop_by_hop
 
 import requests
 from boltons.iterutils import remap
@@ -179,7 +179,7 @@ class Gatekeeper(APIView):
         remapped_headers = {}
 
         for header_name in headers:
-            if header_name.lower() in ['location', 'content-length'] or _hoppish(header_name.lower()):
+            if header_name.lower() in ['location', 'content-length'] or is_hop_by_hop(header_name):
                 continue
 
             remapped_headers[header_name] = headers[header_name]
