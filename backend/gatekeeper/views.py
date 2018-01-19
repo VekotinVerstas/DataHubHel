@@ -1,3 +1,4 @@
+import cgi
 import json
 from collections import OrderedDict
 from wsgiref.util import is_hop_by_hop
@@ -11,7 +12,29 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Datastream, Thing
-from .utils import get_gatekeeper_sta_prefix, parse_sta_url
+from .utils import get_gatekeeper_sta_prefix, get_object_by_self_link, parse_sta_url
+
+
+def exclude_unauthorized_data(data, user):
+    def check_permission(visit_path, key, value):
+        # For now let's just strip the counts because they could be wrong
+        if isinstance(key, str) and '@iot.count' in key:
+            return False
+
+        if isinstance(value, dict) and '@iot.selfLink' in value:
+            obj = get_object_by_self_link(value['@iot.selfLink'])
+
+            # TODO: What to do with unknown or missing items? Now they are just
+            # removed them from the data.
+            if not obj:
+                return False
+
+            # TODO: Cache permissions
+            return user.has_perm('subscribe_{}'.format(obj._meta.model_name, obj))
+
+        return key, value
+
+    return remap(data, visit=check_permission)
 
 
 class Gatekeeper(APIView):
@@ -163,7 +186,13 @@ class Gatekeeper(APIView):
         if status_code == 201 and 'location' in sts_response.headers:
             self.create(request, sts_response)
 
-        response.data = sts_response.content
+        if cgi.parse_header(content_type)[0] == 'application/json':
+            data = json.loads(sts_response.content, object_pairs_hook=OrderedDict, encoding=sts_response.encoding)
+            data = exclude_unauthorized_data(data, request.user)
+            # TODO: Change the response if the user didn't have permission to read any of the records
+            response.data = json.dumps(data, indent=4, ensure_ascii=False)
+        else:
+            response.data = sts_response.content
 
         headers = self.remap_response_headers(sts_response.headers)
         if headers:

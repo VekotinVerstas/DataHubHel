@@ -1,6 +1,7 @@
 import re
 from urllib.parse import urlparse
 
+from django.apps import apps
 from django.conf import settings
 from django.urls import reverse
 
@@ -91,3 +92,21 @@ def parse_sta_url(url, prefix=None):
 
 def get_gatekeeper_sta_prefix():
     return reverse('gatekeeper:index', kwargs={'path': settings.STA_VERSION})
+
+
+def get_object_by_self_link(self_link):
+    parse_result = parse_sta_url(self_link, prefix=get_gatekeeper_sta_prefix())
+
+    if not parse_result or parse_result['type'] != 'entity' or parse_result['parts'][-1]['name'] not in [
+            'Datastream', 'Thing']:
+        return None
+
+    obj_class = apps.get_model(app_label='gatekeeper', model_name=parse_result['parts'][-1]['name'])
+
+    obj = None
+    try:
+        obj = obj_class.objects.get(sts_id=parse_result['parts'][-1]['id'])
+    except obj_class.DoesNotExist:
+        pass
+
+    return obj
