@@ -15,25 +15,37 @@ from .models import Datastream, Thing
 from .utils import get_gatekeeper_sta_prefix, get_object_by_self_link, parse_sta_url
 
 
+def check_entity_permission(data, user):
+    if isinstance(data, dict) and '@iot.selfLink' in data:
+        obj = get_object_by_self_link(data['@iot.selfLink'])
+
+        # TODO: What to do with unknown or missing items? Now they are just
+        # removed them from the data.
+        if not obj:
+            return False
+
+        # TODO: Cache permissions
+        return user.has_perm('subscribe_{}'.format(obj._meta.model_name, obj))
+
+    # No selfLink, include this dict
+    return True
+
+
+# TODO: Notice! Currently all Observations are excluded!
 def exclude_unauthorized_data(data, user):
     def check_permission(visit_path, key, value):
         # For now let's just strip the counts because they could be wrong
         if isinstance(key, str) and '@iot.count' in key:
             return False
 
-        if isinstance(value, dict) and '@iot.selfLink' in value:
-            obj = get_object_by_self_link(value['@iot.selfLink'])
+        return check_entity_permission(value, user)
 
-            # TODO: What to do with unknown or missing items? Now they are just
-            # removed them from the data.
-            if not obj:
-                return False
+    # First check the top-level object if there is one
+    if not check_entity_permission(data, user):
+        # TODO: Think about what to return
+        return None
 
-            # TODO: Cache permissions
-            return user.has_perm('subscribe_{}'.format(obj._meta.model_name, obj))
-
-        return key, value
-
+    # If the user had permission to the top-level item, check the sub entities
     return remap(data, visit=check_permission)
 
 
