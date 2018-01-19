@@ -188,9 +188,8 @@ class Gatekeeper(APIView):
 
         if cgi.parse_header(content_type)[0] == 'application/json':
             data = json.loads(sts_response.content, object_pairs_hook=OrderedDict, encoding=sts_response.encoding)
-            data = exclude_unauthorized_data(data, request.user)
+            response.data = exclude_unauthorized_data(data, request.user)
             # TODO: Change the response if the user didn't have permission to read any of the records
-            response.data = json.dumps(data, indent=4, ensure_ascii=False)
         else:
             response.data = sts_response.content
 
