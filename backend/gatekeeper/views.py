@@ -181,10 +181,4 @@ class Gatekeeper(APIView):
 
             remapped_headers[header_name] = headers[header_name]
 
-        # Rewrite location header url
-        location_header = headers.get('location', None)
-        if location_header and location_header.startswith(settings.GATEKEEPER_STS_BASE_URL):
-            remapped_headers['Location'] = location_header.replace(settings.GATEKEEPER_STS_BASE_URL,
-                                                                   self.sts_self_base_url)
-
         return remapped_headers
