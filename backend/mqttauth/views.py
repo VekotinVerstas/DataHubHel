@@ -7,6 +7,15 @@ from gatekeeper.models import Datastream
 from gatekeeper.utils import parse_sta_url
 
 
+# TODO: Should be moved to a custom user manager when we have one
+def get_user_by_username_or_anonymous(username):
+    user_class = get_user_model()
+    try:
+        return user_class.objects.get(username=username, is_active=True)
+    except user_class.DoesNotExist:
+        return user_class.get_anonymous()
+
+
 @csrf_exempt
 def auth(request):
     """Check username/password
@@ -34,12 +43,10 @@ def superuser(request):
     """
     response_status_code = 403
 
-    user_class = get_user_model()  # noqa
-    try:
-        user_class.objects.get(username=request.POST.get('username'), is_superuser=True, is_active=True)
+    user = get_user_by_username_or_anonymous(request.POST.get('username'))
+
+    if user.is_superuser:
         response_status_code = 200
-    except user_class.DoesNotExist:
-        pass
 
     return HttpResponse(status=response_status_code)
 
@@ -59,7 +66,7 @@ def acl(request):
     acc = request.POST.get('acc')  # 1 == sub, 2 == pub
 
     permission_name_map = {
-        '1':  'subscribe_datastream',
+        '1': 'subscribe_datastream',
         '2': 'publish_datastream',
     }
 
@@ -67,25 +74,23 @@ def acl(request):
     if not permission_name:
         return HttpResponse(status=response_status_code)
 
-    # TODO: make prefix configurable
-    parse_result = parse_sta_url(topic, prefix='v1.0')
+    user = get_user_by_username_or_anonymous(username)
+
+    if user.is_superuser:
+        return HttpResponse(status=200)
 
     parse_result = parse_sta_url(topic, prefix=settings.STA_VERSION)
-    # For now we only look for a Datastream id and check permissions for that datastream
-    for part in parse_result['parts']:
-        if part['type'] == 'entity' and part['name'] == 'Datastream' and part['id']:
-            try:
-                ds = Datastream.objects.get(sts_id=part['id'])
 
-                user_class = get_user_model()  # noqa
+    if parse_result['parts']:
+        # For now we only look for a Datastream id and check permissions for that datastream
+        for part in parse_result['parts']:
+            if part['type'] == 'entity' and part['name'] == 'Datastream' and part['id']:
                 try:
-                    user = user_class.objects.get(username=username, is_active=True)
+                    ds = Datastream.objects.get(sts_id=part['id'])
 
                     if user.has_perm(permission_name, ds):
                         response_status_code = 200
-                except user_class.DoesNotExist:
+                except Datastream.DoesNotExist:
                     pass
-            except Datastream.DoesNotExist:
-                pass
 
     return HttpResponse(status=response_status_code)
