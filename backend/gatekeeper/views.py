@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Datastream, Thing
-from .utils import parse_sta_url
+from .utils import get_gatekeeper_sta_prefix, parse_sta_url
 
 
 class Gatekeeper(APIView):
@@ -92,8 +92,7 @@ class Gatekeeper(APIView):
             self_link = created_object_data['@iot.selfLink'].replace(
                 settings.GATEKEEPER_STS_BASE_URL, self.sts_self_base_url)
 
-            # TODO: make prefix configurable
-            parse_result = parse_sta_url(self_link, prefix='/api/v1.0')
+            parse_result = parse_sta_url(self_link, prefix=get_gatekeeper_sta_prefix())
 
             # Save the created entity to the local database
             if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Thing':
@@ -108,7 +107,6 @@ class Gatekeeper(APIView):
 
                 # Query datastreams and save them to the database
                 if 'Datastreams@iot.navigationLink' in created_object_data:
-                    # TODO: make version prefix configurable
                     datastreams_url = created_object_data['Datastreams@iot.navigationLink']
                     # TODO: error checks
                     datastreams_request = requests.get(datastreams_url)
@@ -126,9 +124,8 @@ class Gatekeeper(APIView):
             if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Datastream':
                 # Query the Thing this Datastream is a part of
                 if 'Thing@iot.navigationLink' in created_object_data:
-                    # TODO: make version prefix configurable
-                    thing_url = '{}/v1.0/{}'.format(settings.GATEKEEPER_STS_BASE_URL,
-                                                    created_object_data['Thing@iot.navigationLink'])
+                    thing_url = '/'.join([settings.GATEKEEPER_STS_BASE_URL, settings.STA_VERSION,
+                                         created_object_data['Thing@iot.navigationLink']])
                     # TODO: error checks
                     thing_request = requests.get(thing_url)
                     thing_data = thing_request.json()

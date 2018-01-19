@@ -1,6 +1,9 @@
 import re
 from urllib.parse import urlparse
 
+from django.conf import settings
+from django.urls import reverse
+
 ENTITY_NAMES = [
     'Thing', 'Datastream', 'MultiDatastream', 'Sensor', 'Observation', 'ObservedProperty', 'FeatureOfInterest',
     'HistoricalLocation', 'Location'
@@ -84,3 +87,7 @@ def parse_sta_url(url, prefix=None):
         result['type'] = 'property'
 
     return result
+
+
+def get_gatekeeper_sta_prefix():
+    return reverse('gatekeeper:index', kwargs={'path': settings.STA_VERSION})

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -69,6 +70,7 @@ def acl(request):
     # TODO: make prefix configurable
     parse_result = parse_sta_url(topic, prefix='v1.0')
 
+    parse_result = parse_sta_url(topic, prefix=settings.STA_VERSION)
     # For now we only look for a Datastream id and check permissions for that datastream
     for part in parse_result['parts']:
         if part['type'] == 'entity' and part['name'] == 'Datastream' and part['id']:
