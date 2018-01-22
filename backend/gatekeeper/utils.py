@@ -97,11 +97,15 @@ def get_gatekeeper_sta_prefix():
 def get_object_by_self_link(self_link):
     parse_result = parse_sta_url(self_link, prefix=get_gatekeeper_sta_prefix())
 
-    if not parse_result or parse_result['type'] != 'entity' or parse_result['parts'][-1]['name'] not in [
-            'Datastream', 'Thing']:
+    if not parse_result or parse_result['type'] != 'entity':
         return None
 
-    obj_class = apps.get_model(app_label='gatekeeper', model_name=parse_result['parts'][-1]['name'])
+    entity_type_name = parse_result['parts'][-1]['name']
+
+    if entity_type_name not in ['Datastream', 'Thing']:
+        return None
+
+    obj_class = apps.get_model(app_label='gatekeeper', model_name=entity_type_name)
 
     obj = None
     try:
