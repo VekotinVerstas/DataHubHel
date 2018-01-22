@@ -6,6 +6,7 @@ from wsgiref.util import is_hop_by_hop
 import requests
 from boltons.iterutils import remap
 from django.conf import settings
+from django.http import HttpResponse
 from django.urls import reverse
 from guardian.shortcuts import assign_perm
 from rest_framework.response import Response
@@ -188,22 +189,33 @@ class Gatekeeper(APIView):
         sts_response = requests.request(request.method, self.sts_url, **self.sts_arguments)
         status_code = sts_response.status_code
         content_type = sts_response.headers['Content-Type'] if 'Content-Type' in sts_response.headers else ''
-
-        response = Response(content_type=content_type, status=sts_response.status_code)
-
-        if status_code == 404 or status_code >= 500:
-            response.data = sts_response.content
-            return response
-
-        if status_code == 201 and 'location' in sts_response.headers:
-            self.create(request, sts_response)
+        response_args = {
+            'content_type': content_type,
+            'status': status_code,
+        }
 
         if cgi.parse_header(content_type)[0] == 'application/json':
-            data = json.loads(sts_response.content, object_pairs_hook=OrderedDict, encoding=sts_response.encoding)
-            response.data = exclude_unauthorized_data(data, request.user)
+            """
+            Let DRF handle JSON responses and render them according to Django settings.
+            This will allow the browsable API to be used.
+
+            In the case where the content type is not of JSON type, use
+            a HttpResponse to return the same kind of response as the
+            STS returned.
+            """
+
+            # Pop the content type as we want to allow both JSON and browsable API responses
+            response_args.pop('content_type')
+            response_data = exclude_unauthorized_data(sts_response.json(), request.user)
             # TODO: Change the response if the user didn't have permission to read any of the records
+            response = Response(data=response_data, **response_args)
         else:
-            response.data = sts_response.content
+            response = HttpResponse(content=sts_response.content, **response_args)
+
+        if status_code == 404 or status_code >= 500:
+            return response
+        if status_code == 201 and 'location' in sts_response.headers:
+            self.create(request, sts_response)
 
         headers = self.remap_response_headers(sts_response.headers)
         if headers:
