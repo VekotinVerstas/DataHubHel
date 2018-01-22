@@ -1,6 +1,7 @@
+import cgi
 import json
 from collections import OrderedDict
-from wsgiref.util import _hoppish
+from wsgiref.util import is_hop_by_hop
 
 import requests
 from boltons.iterutils import remap
@@ -11,7 +12,41 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Datastream, Thing
-from .utils import parse_sta_url
+from .utils import get_gatekeeper_sta_prefix, get_object_by_self_link, parse_sta_url
+
+
+def check_entity_permission(data, user):
+    if isinstance(data, dict) and '@iot.selfLink' in data:
+        obj = get_object_by_self_link(data['@iot.selfLink'])
+
+        # TODO: What to do with unknown or missing items? Now they are just
+        # removed them from the data.
+        if not obj:
+            return False
+
+        # TODO: Cache permissions
+        return user.has_perm('subscribe_{}'.format(obj._meta.model_name, obj))
+
+    # No selfLink, include this dict
+    return True
+
+
+# TODO: Notice! Currently all Observations are excluded!
+def exclude_unauthorized_data(data, user):
+    def check_permission(visit_path, key, value):
+        # For now let's just strip the counts because they could be wrong
+        if isinstance(key, str) and '@iot.count' in key:
+            return False
+
+        return check_entity_permission(value, user)
+
+    # First check the top-level object if there is one
+    if not check_entity_permission(data, user):
+        # TODO: Think about what to return
+        return None
+
+    # If the user had permission to the top-level item, check the sub entities
+    return remap(data, visit=check_permission)
 
 
 class Gatekeeper(APIView):
@@ -92,8 +127,7 @@ class Gatekeeper(APIView):
             self_link = created_object_data['@iot.selfLink'].replace(
                 settings.GATEKEEPER_STS_BASE_URL, self.sts_self_base_url)
 
-            # TODO: make prefix configurable
-            parse_result = parse_sta_url(self_link, prefix='/api/v1.0')
+            parse_result = parse_sta_url(self_link, prefix=get_gatekeeper_sta_prefix())
 
             # Save the created entity to the local database
             if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Thing':
@@ -108,7 +142,6 @@ class Gatekeeper(APIView):
 
                 # Query datastreams and save them to the database
                 if 'Datastreams@iot.navigationLink' in created_object_data:
-                    # TODO: make version prefix configurable
                     datastreams_url = created_object_data['Datastreams@iot.navigationLink']
                     # TODO: error checks
                     datastreams_request = requests.get(datastreams_url)
@@ -126,9 +159,8 @@ class Gatekeeper(APIView):
             if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Datastream':
                 # Query the Thing this Datastream is a part of
                 if 'Thing@iot.navigationLink' in created_object_data:
-                    # TODO: make version prefix configurable
-                    thing_url = '{}/v1.0/{}'.format(settings.GATEKEEPER_STS_BASE_URL,
-                                                    created_object_data['Thing@iot.navigationLink'])
+                    thing_url = '/'.join([settings.GATEKEEPER_STS_BASE_URL, settings.STA_VERSION,
+                                         created_object_data['Thing@iot.navigationLink']])
                     # TODO: error checks
                     thing_request = requests.get(thing_url)
                     thing_data = thing_request.json()
@@ -166,7 +198,12 @@ class Gatekeeper(APIView):
         if status_code == 201 and 'location' in sts_response.headers:
             self.create(request, sts_response)
 
-        response.data = sts_response.content
+        if cgi.parse_header(content_type)[0] == 'application/json':
+            data = json.loads(sts_response.content, object_pairs_hook=OrderedDict, encoding=sts_response.encoding)
+            response.data = exclude_unauthorized_data(data, request.user)
+            # TODO: Change the response if the user didn't have permission to read any of the records
+        else:
+            response.data = sts_response.content
 
         headers = self.remap_response_headers(sts_response.headers)
         if headers:
@@ -179,15 +216,9 @@ class Gatekeeper(APIView):
         remapped_headers = {}
 
         for header_name in headers:
-            if header_name.lower() in ['location', 'content-length'] or _hoppish(header_name.lower()):
+            if header_name.lower() in ['location', 'content-length'] or is_hop_by_hop(header_name):
                 continue
 
             remapped_headers[header_name] = headers[header_name]
-
-        # Rewrite location header url
-        location_header = headers.get('location', None)
-        if location_header and location_header.startswith(settings.GATEKEEPER_STS_BASE_URL):
-            remapped_headers['Location'] = location_header.replace(settings.GATEKEEPER_STS_BASE_URL,
-                                                                   self.sts_self_base_url)
 
         return remapped_headers
