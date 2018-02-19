@@ -121,14 +121,12 @@ class Gatekeeper(APIView):
 
     def create(self, request, sts_response):
         # TODO: error checks
-        entity_request = requests.get(sts_response.headers['location'])
+        entity_request = requests.get(self.local_url_to_sts(sts_response.headers['location']))
+
         created_object_data = entity_request.json()
 
         if '@iot.id' in created_object_data and '@iot.selfLink' in created_object_data:
-            self_link = created_object_data['@iot.selfLink'].replace(
-                settings.GATEKEEPER_STS_BASE_URL, self.sts_self_base_url)
-
-            parse_result = parse_sta_url(self_link, prefix=get_gatekeeper_sta_prefix())
+            parse_result = parse_sta_url(created_object_data['@iot.selfLink'], prefix=get_gatekeeper_sta_prefix())
 
             # Save the created entity to the local database
             if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Thing':
@@ -143,7 +141,8 @@ class Gatekeeper(APIView):
 
                 # Query datastreams and save them to the database
                 if 'Datastreams@iot.navigationLink' in created_object_data:
-                    datastreams_url = created_object_data['Datastreams@iot.navigationLink']
+                    datastreams_url = self.local_url_to_sts(created_object_data['Datastreams@iot.navigationLink'])
+
                     # TODO: error checks
                     datastreams_request = requests.get(datastreams_url)
                     datastreams_data = datastreams_request.json()
@@ -160,8 +159,8 @@ class Gatekeeper(APIView):
             if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Datastream':
                 # Query the Thing this Datastream is a part of
                 if 'Thing@iot.navigationLink' in created_object_data:
-                    thing_url = '/'.join([settings.GATEKEEPER_STS_BASE_URL, settings.STA_VERSION,
-                                         created_object_data['Thing@iot.navigationLink']])
+                    thing_url = self.local_url_to_sts(created_object_data['Thing@iot.navigationLink'])
+
                     # TODO: error checks
                     thing_request = requests.get(thing_url)
                     thing_data = thing_request.json()
@@ -234,3 +233,12 @@ class Gatekeeper(APIView):
             remapped_headers[header_name] = headers[header_name]
 
         return remapped_headers
+
+    def local_url_to_sts(self, url):
+        if not url.startswith('http'):
+            return settings.GATEKEEPER_STS_BASE_URL + url
+
+        if url.startswith(self.sts_self_base_url):
+            return settings.GATEKEEPER_STS_BASE_URL + url[len(self.sts_self_base_url):]
+
+        return url
