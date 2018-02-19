@@ -139,4 +139,5 @@ REST_FRAMEWORK = {
 CORS_ORIGIN_ALLOW_ALL = True
 
 STA_VERSION = 'v1.0'
-GATEKEEPER_STS_BASE_URL = 'http://localhost:8080/SensorThingsService'
+GATEKEEPER_STS_BASE_URL = 'http://localhost:8080/FROST-Server'
+
