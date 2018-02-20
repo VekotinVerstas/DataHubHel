@@ -1,10 +1,10 @@
-from django.conf.urls import url
+from django.urls import path
 
 from . import views
 
 app_name = 'mqttauth'
 urlpatterns = [
-    url(r'^auth/$', views.auth, name='auth'),
-    url(r'^superuser/$', views.superuser, name='superuser'),
-    url(r'^acl/$', views.acl, name='acl'),
+    path('auth/', views.auth, name='auth'),
+    path('superuser/', views.superuser, name='superuser'),
+    path('acl/', views.acl, name='acl'),
 ]
