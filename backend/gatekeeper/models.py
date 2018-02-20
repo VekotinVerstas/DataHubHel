@@ -22,7 +22,7 @@ class Thing(EntityBase):
 
 
 class Datastream(EntityBase):
-    thing = models.ForeignKey(Thing)
+    thing = models.ForeignKey(Thing, on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = 'data stream'
