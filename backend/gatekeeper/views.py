@@ -1,6 +1,5 @@
 import cgi
-import json
-from collections import OrderedDict
+import logging
 from wsgiref.util import is_hop_by_hop
 
 import requests
@@ -14,6 +13,8 @@ from rest_framework.views import APIView
 
 from .models import Datastream, Thing
 from .utils import get_gatekeeper_sta_prefix, get_object_by_self_link, parse_sta_url
+
+logger = logging.getLogger(__name__)
 
 
 def check_entity_permission(data, user):
@@ -120,6 +121,8 @@ class Gatekeeper(APIView):
         return self.handle_request(request)
 
     def create(self, request, sts_response):
+        logger.info('User #{} created {}'.format(request.user.id, sts_response.headers['location']))
+
         # TODO: error checks
         entity_request = requests.get(self.local_url_to_sts(sts_response.headers['location']))
 
@@ -148,6 +151,9 @@ class Gatekeeper(APIView):
                     datastreams_data = datastreams_request.json()
                     if datastreams_data.get('@iot.count', 0) > 0 and 'value' in datastreams_data:
                         for ds in datastreams_data.get('value'):
+                            logger.info(
+                                'User #{} created {}'.format(request.user.id, ds.get('@iot.selflink')))
+
                             Datastream.objects.create(
                                 sts_id=ds.get('@iot.id'),
                                 name=ds.get('name'),
