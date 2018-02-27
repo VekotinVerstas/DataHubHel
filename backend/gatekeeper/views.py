@@ -199,7 +199,14 @@ class Gatekeeper(APIView):
             'status': status_code,
         }
 
+        json_content = None
         if cgi.parse_header(content_type)[0] == 'application/json':
+            try:
+                json_content = sts_response.json()
+            except (JSONDecodeError, ValueError):
+                pass
+
+        if json_content:
             """
             Let DRF handle JSON responses and render them according to Django settings.
             This will allow the browsable API to be used.
