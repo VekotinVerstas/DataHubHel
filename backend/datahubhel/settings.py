@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'guardian',
+    'django_extensions',
     'datahubhel',
     'gatekeeper',
     'mqttauth',
