@@ -1,53 +1,25 @@
 import cgi
 import logging
+import re
+from json import JSONDecodeError
 from wsgiref.util import is_hop_by_hop
 
 import requests
-from boltons.iterutils import remap
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.urls import reverse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from dhh_auth.models import ClientPermission
+from dhh_auth.utils import get_perm_obj
+from service.exceptions import ResponseNotFound
+
 from .models import Datastream, Thing
-from .utils import get_gatekeeper_sta_prefix, get_object_by_self_link, parse_sta_url
+from .utils import ENTITY_TO_DATASTREAM_PATH, get_gatekeeper_sta_prefix, get_url_entity_type, parse_sta_url
 
 logger = logging.getLogger(__name__)
-
-
-def check_entity_permission(data, user):
-    if isinstance(data, dict) and '@iot.selfLink' in data:
-        obj = get_object_by_self_link(data['@iot.selfLink'])
-
-        # TODO: What to do with unknown or missing items? Now they are just
-        # removed them from the data.
-        if not obj:
-            return False
-
-        # TODO: Cache permissions
-        return user.has_perm('subscribe_{}'.format(obj._meta.model_name, obj))
-
-    # No selfLink, include this dict
-    return True
-
-
-# TODO: Notice! Currently all Observations are excluded!
-def exclude_unauthorized_data(data, user):
-    def check_permission(visit_path, key, value):
-        # For now let's just strip the counts because they could be wrong
-        if isinstance(key, str) and '@iot.count' in key:
-            return False
-
-        return check_entity_permission(value, user)
-
-    # First check the top-level object if there is one
-    if not check_entity_permission(data, user):
-        # TODO: Think about what to return
-        return None
-
-    # If the user had permission to the top-level item, check the sub entities
-    return remap(data, visit=check_permission)
 
 
 class Gatekeeper(APIView):
@@ -61,6 +33,10 @@ class Gatekeeper(APIView):
     sts_headers = {}
     sts_arguments = {}
     sts_content_type = ''
+    sts_extend_parameters = None
+
+    # Matches on strings that, after the word Datastream, either end or continue with a comma
+    sts_datastreams_extend_re = re.compile(r'.*Datastreams(,.*|$)')
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
@@ -140,7 +116,7 @@ class Gatekeeper(APIView):
             if len(datastreams_value) > 0:
                 for ds in datastreams_value:
                     logger.info(
-                        'User #{} created {}'.format(request.user.id, ds.get('@iot.selflink')))
+                        'User #{} created {}'.format(self.request.user.id, ds.get('@iot.selflink')))
                     Datastream.objects.create(
                         sts_id=ds.get('@iot.id'),
                         name=ds.get('name'),
@@ -190,7 +166,227 @@ class Gatekeeper(APIView):
                 if entity_create_function:
                     entity_create_function(created_object_data)
 
-    def handle_request(self, request):
+    def expand_datastreams(self):
+        """
+        Expand the requested url to include datastreams
+
+        As results are filtered by datastreams we want to
+        gain access to all datastreams associated with the
+        results. We do this by expanding the request to
+        include datastreams.
+        """
+
+        params = self.sts_arguments.get('params', {})
+        expand_query_param = params.get('$expand', '')
+
+        # If we are already extending Datastreams there is no need for further actions
+        if expand_query_param and self.sts_datastreams_extend_re.match(expand_query_param):
+            return False
+
+        parse_result = parse_sta_url(self.sts_url, prefix=get_gatekeeper_sta_prefix())
+
+        entity_type = parse_result['parts'][-1]['name']
+        if entity_type not in ENTITY_TO_DATASTREAM_PATH:
+            return True
+
+        expand_with = ENTITY_TO_DATASTREAM_PATH.get(entity_type)
+        if not expand_with:
+            return False
+
+        self.sts_extend_parameters = expand_with
+
+        if expand_query_param:
+            self.sts_extend_parameters = ',{}'.format(expand_with)
+
+        expand_params = '{}{}'.format(expand_query_param, self.sts_extend_parameters)
+
+        self.sts_arguments['params']['$expand'] = expand_params
+
+        return True
+
+    def remove_internally_expanded_datastreams(self, data):
+        """
+        Remove expanded datastreams
+
+        If the response was expanded to include datastreams
+        but was not requested by the user, then remove the
+        datastream values from the results.
+
+        # TODO: Handle deep expand and only remove what was internally expanded
+        # Example, user does $expand=Thing and internally we do $expand=Thing/Datastreams
+        # then Thing should still stay expanded in the result but Datastreams should be
+        # present.
+        """
+        if not self.sts_extend_parameters:
+            return data
+
+        datastream_lookup = self.sts_extend_parameters.split('/')[0]
+
+        is_list = 'value' in data
+        if is_list:
+            for entry in data['value']:
+                if datastream_lookup in entry:
+                    del entry[datastream_lookup]
+        elif datastream_lookup in data:
+            del data[datastream_lookup]
+
+        return data
+
+    def sts_not_found(self):
+        """
+        To emulate STS as much as possible we respond
+        in the same way as they do when nothing is found.
+        """
+        content = b'Nothing found.'
+
+        # The STS server returns a json content type
+        # even though the content is not json.
+        headers = {
+            'content_type': 'application/json;charset=UTF-8',
+            'status': 404,
+        }
+        return HttpResponse(content=content, **headers)
+
+    def get_datastreams_by_lookup(self, response, lookup_list, runid=1):
+        if isinstance(response, list) and not lookup_list[0] == '':
+            nested_entries = []
+            for entry in response:
+                runid += 1
+                nested_entries += self.get_datastreams_by_lookup(entry, lookup_list, runid=runid)
+            return self.get_datastreams_by_lookup(nested_entries, [''])
+
+        if len(lookup_list) == 1:
+            if lookup_list[0] == '':
+                datastreams = response
+            else:
+                datastreams = response[lookup_list[0]]
+            if not isinstance(datastreams, list):
+                return [datastreams]
+            return datastreams
+
+        response = response[lookup_list[0]]
+        return self.get_datastreams_by_lookup(response, lookup_list[1:])
+
+    def get_permitted_datastreams(self, datastream_sts_ids):
+        # Fetch all relevant datastream primary keys and sts ids
+        datastream_info = Datastream.objects.filter(sts_id__in=datastream_sts_ids).values_list('pk', 'sts_id')
+        # Create a dict from a list of tuples. [(1, 2), (3, 4)] -> {1: 2, 3: 4}
+        datastream_map = dict((pk, int(sts_id)) for pk, sts_id in datastream_info)
+        # Extract only the datastream ids to separate list
+        datastream_ids = list(datastream_map.keys())
+
+        # Get relevant permissions
+        permission = get_perm_obj('view_datastream', Datastream)
+        # Get all permissions filtered on the datastreams for the current client
+        valid_permission_ids = (
+            ClientPermission.objects
+                .filter(permission=permission,
+                        client=self.request.user.client,
+                        content_type=permission.content_type,
+                        object_pk__in=datastream_ids)
+                .values_list('object_pk',
+                             flat=True)
+        )
+
+        # Create a list of all of the sts ids that the client as permission to view
+        # by mapping against the dict created earlier holding a id -> sts id mapping
+        datastream_permissions = [datastream_map[int(valid_id)] for valid_id in valid_permission_ids]
+
+        # Get all sts ids that the user is the owner, filtered by the relevant sts ids in the response
+        if isinstance(self.request.user, get_user_model()):
+            owned_datastreams = (
+                Datastream.objects
+                .filter(
+                    thing__owner=self.request.user,
+                    sts_id__in=datastream_sts_ids
+                )
+                .values_list(
+                    'sts_id',
+                    flat=True
+                )
+            )
+            # Add the sts ids to the permission list
+            datastream_permissions += [int(sts_id) for sts_id in owned_datastreams]
+
+        return datastream_permissions
+
+    def filter_response(self, response):  # noqa: C901
+        """
+        Filter response from STS server by filtering on the
+        datastreams associated to the entries. Access control
+        is checked by permission (all clients) or ownership
+        (normal users only).
+
+        Datastream permissions are fetched by first extracting
+        all datastreams associated with the entries in the response
+        after which these datastreams are queried and the internal
+        as well as the sts id of the datastreams are extracted.
+        All view_datastreams permissions given to the client for
+        those datastreams is then queried. All entries are then
+        filtered according to the view rights of the client.
+        If the user is a normal user, i.e not a service, then
+        ownership of the datastreams are also checked.
+
+        If not results are left after the filtering, a ResponseNotFound
+        exception is thrown to signal that a 404 result should
+        be returned by the request handler.
+
+        Caveat:
+        When filtering a result containing only datastreams
+        a special case is made as the result can not be
+        expanded.
+
+        TODO Clean up the function and lower its complexity
+        """
+        entity_type = get_url_entity_type(self.sts_url)
+        if entity_type not in ENTITY_TO_DATASTREAM_PATH:
+            return response
+
+        if entity_type == 'MultiDatastream':
+            raise ResponseNotFound
+
+        lookup_list = ENTITY_TO_DATASTREAM_PATH[entity_type].split('/')
+        is_list = 'value' in response
+
+        if not is_list:
+            response_values = [response]
+        else:
+            response_values = response['value']
+
+        # Create list of datastreams to fetch
+        fetch_datastreams = []
+        for entry in response_values:
+            entry_datastreams = self.get_datastreams_by_lookup(entry, lookup_list)
+            for datastream in entry_datastreams:
+                if datastream['@iot.id'] not in fetch_datastreams:
+                    fetch_datastreams.append(datastream['@iot.id'])
+
+        permitted_datastreams = self.get_permitted_datastreams(fetch_datastreams)
+
+        valid_values = []
+        for entry in response_values:
+            valid = False
+            entry_datastreams = self.get_datastreams_by_lookup(entry, lookup_list)
+            for datastream in entry_datastreams:
+                if datastream['@iot.id'] in permitted_datastreams:
+                    valid = True
+            if valid:
+                valid_values.append(entry)
+
+        if not valid_values:
+            raise ResponseNotFound
+
+        if not is_list:
+            response = valid_values[0]
+        else:
+            response['value'] = valid_values
+
+        return response
+
+    def handle_request(self, request):  # noqa: C901
+        if request.method == 'GET':
+            self.expand_datastreams()
+
         sts_response = requests.request(request.method, self.sts_url, **self.sts_arguments)
         status_code = sts_response.status_code
         content_type = sts_response.headers['Content-Type'] if 'Content-Type' in sts_response.headers else ''
@@ -218,7 +414,15 @@ class Gatekeeper(APIView):
 
             # Pop the content type as we want to allow both JSON and browsable API responses
             response_args.pop('content_type')
-            response_data = exclude_unauthorized_data(sts_response.json(), request.user)
+
+            response_data = json_content
+            try:
+                pass
+                if request.method == 'GET':
+                    response_data = self.filter_response(response_data)
+            except ResponseNotFound:
+                return self.sts_not_found()
+            response_data = self.remove_internally_expanded_datastreams(response_data)
             # TODO: Change the response if the user didn't have permission to read any of the records
             response = Response(data=response_data, **response_args)
         else:
