@@ -7,7 +7,6 @@ from boltons.iterutils import remap
 from django.conf import settings
 from django.http import HttpResponse
 from django.urls import reverse
-from guardian.shortcuts import assign_perm
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -120,6 +119,60 @@ class Gatekeeper(APIView):
     def head(self, request):
         return self.handle_request(request)
 
+    def create_thing(self, created_object_data):
+        instance = Thing.objects.create(
+            sts_id=created_object_data.get('@iot.id'),
+            name=created_object_data.get('name'),
+            description=created_object_data.get('description'),
+            owner=self.request.user,
+        )
+        instance.save()
+
+        # Query datastreams and save them to the database
+        if 'Datastreams@iot.navigationLink' in created_object_data:
+            datastreams_url = self.local_url_to_sts(created_object_data['Datastreams@iot.navigationLink'])
+
+            # TODO: error checks
+            datastreams_request = requests.get(datastreams_url)
+            datastreams_data = datastreams_request.json()
+            datastreams_value = datastreams_data.get('value', [])
+
+            if len(datastreams_value) > 0:
+                for ds in datastreams_value:
+                    logger.info(
+                        'User #{} created {}'.format(request.user.id, ds.get('@iot.selflink')))
+                    Datastream.objects.create(
+                        sts_id=ds.get('@iot.id'),
+                        name=ds.get('name'),
+                        description=ds.get('description'),
+                        owner=self.request.user,
+                        thing=instance,
+                    )
+
+    def create_datastream(self, created_object_data):
+        # Query the Thing this Datastream is a part of
+        if 'Thing@iot.navigationLink' in created_object_data:
+            thing_url = self.local_url_to_sts(created_object_data['Thing@iot.navigationLink'])
+
+            # TODO: error checks
+            thing_request = requests.get(thing_url)
+            thing_data = thing_request.json()
+
+            try:
+                thing = Thing.objects.get(sts_id=thing_data.get('@iot.id'))
+
+                Datastream.objects.create(
+                    sts_id=created_object_data.get('@iot.id'),
+                    name=created_object_data.get('name'),
+                    description=created_object_data.get('description'),
+                    owner=self.request.user,
+                    thing=thing,
+                )
+
+            except Thing.DoesNotExist:
+                # TODO: handle error
+                pass
+
     def create(self, request, sts_response):
         logger.info('User #{} created {}'.format(request.user.id, sts_response.headers['location']))
 
@@ -131,64 +184,11 @@ class Gatekeeper(APIView):
         if '@iot.id' in created_object_data and '@iot.selfLink' in created_object_data:
             parse_result = parse_sta_url(created_object_data['@iot.selfLink'], prefix=get_gatekeeper_sta_prefix())
 
-            # Save the created entity to the local database
-            if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Thing':
-                instance = Thing.objects.create(
-                    sts_id=created_object_data.get('@iot.id'),
-                    name=created_object_data.get('name'),
-                    description=created_object_data.get('description')
-                )
-
-                instance.user = request.user
-                instance.save()
-
-                # Query datastreams and save them to the database
-                if 'Datastreams@iot.navigationLink' in created_object_data:
-                    datastreams_url = self.local_url_to_sts(created_object_data['Datastreams@iot.navigationLink'])
-
-                    # TODO: error checks
-                    datastreams_request = requests.get(datastreams_url)
-                    datastreams_data = datastreams_request.json()
-                    if datastreams_data.get('@iot.count', 0) > 0 and 'value' in datastreams_data:
-                        for ds in datastreams_data.get('value'):
-                            logger.info(
-                                'User #{} created {}'.format(request.user.id, ds.get('@iot.selflink')))
-
-                            Datastream.objects.create(
-                                sts_id=ds.get('@iot.id'),
-                                name=ds.get('name'),
-                                description=ds.get('description'),
-                                user=request.user,
-                                thing=instance,
-                            )
-
-            if parse_result['type'] == 'entity' and parse_result['parts'][-1]['name'] == 'Datastream':
-                # Query the Thing this Datastream is a part of
-                if 'Thing@iot.navigationLink' in created_object_data:
-                    thing_url = self.local_url_to_sts(created_object_data['Thing@iot.navigationLink'])
-
-                    # TODO: error checks
-                    thing_request = requests.get(thing_url)
-                    thing_data = thing_request.json()
-
-                    try:
-                        thing = Thing.objects.get(sts_id=thing_data.get('@iot.id'))
-
-                        instance = Datastream()
-                        instance.thing = thing
-                        instance.sts_id = created_object_data.get('@iot.id')
-                        instance.name = created_object_data.get('name')
-                        instance.description = created_object_data.get('description')
-
-                        instance.user = request.user
-                        instance.save()
-
-                        assign_perm('subscribe_datastream', request.user, instance)
-                        assign_perm('publish_datastream', request.user, instance)
-
-                    except Thing.DoesNotExist:
-                        # TODO: handle error
-                        pass
+            if parse_result['type'] == 'entity':
+                entity_type = parse_result['parts'][-1]['name'].lower()
+                entity_create_function = getattr(self, 'create_' + entity_type, None)
+                if entity_create_function:
+                    entity_create_function(created_object_data)
 
     def handle_request(self, request):
         sts_response = requests.request(request.method, self.sts_url, **self.sts_arguments)
