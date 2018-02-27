@@ -22,6 +22,17 @@ ENTITY_NAMES_PLURAL_TO_SINGULAR_MAP = {
     'Locations': 'Location',
 }
 
+ENTITY_TO_DATASTREAM_PATH = {
+    'Sensor': 'Datastreams',
+    'Thing': 'Datastreams',
+    'ObservedProperty': 'Datastreams',
+    'Locations': 'Things/Datastreams',
+    'Location': 'Things/Datastreams',
+    'HistoricalLocation': 'Thing/Datastreams',
+    'Observation': 'Datastream',
+    'FeatureOfInterest': 'Observations/Datastream',
+    'Datastream': '',
+}
 
 def parse_sta_url(url, prefix=None):
     """Parses a SensortThings API path and returns the type of the path and the entities and ids found
