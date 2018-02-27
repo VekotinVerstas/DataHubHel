@@ -1,12 +1,9 @@
 from django.conf import settings
 from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from rest_framework.authtoken.models import Token
 
 
 class EntityBase(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     sts_id = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -14,11 +11,18 @@ class EntityBase(models.Model):
     class Meta:
         abstract = True
 
+    def __str__(self):
+        return self.name
+
 
 class Thing(EntityBase):
     class Meta:
         verbose_name = 'thing'
         verbose_name_plural = 'things'
+        permissions = (
+            ('view_thing_location', 'Can view thing location'),
+            ('view_thing_location_history', 'Can view thing location history')
+        )
 
 
 class Datastream(EntityBase):
@@ -28,12 +32,6 @@ class Datastream(EntityBase):
         verbose_name = 'data stream'
         verbose_name_plural = 'data streams'
         permissions = (
-            ('subscribe_datastream', 'Can subscribe to the data stream topic'),
-            ('publish_datastream', 'Can publish to the data stream topic'),
+            ('view_datastream', 'Can view datastream'),
+            ('create_observation', 'Can create observation to datastream'),
         )
-
-
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_auth_token(sender, instance=None, created=False, **kwargs):
-    if created:
-        Token.objects.create(user=instance)
