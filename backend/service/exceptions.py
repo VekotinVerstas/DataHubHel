@@ -1,2 +1,0 @@
-class ResponseNotFound(Exception):
-    pass

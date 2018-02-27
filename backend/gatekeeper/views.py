@@ -7,14 +7,13 @@ from wsgiref.util import is_hop_by_hop
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.urls import reverse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from dhh_auth.models import ClientPermission
 from dhh_auth.utils import get_perm_obj
-from service.exceptions import ResponseNotFound
 
 from .models import Datastream, Thing
 from .utils import ENTITY_TO_DATASTREAM_PATH, get_gatekeeper_sta_prefix, get_url_entity_type, parse_sta_url
@@ -343,7 +342,7 @@ class Gatekeeper(APIView):
             return response
 
         if entity_type == 'MultiDatastream':
-            raise ResponseNotFound
+            raise Http404
 
         lookup_list = ENTITY_TO_DATASTREAM_PATH[entity_type].split('/')
         is_list = 'value' in response
@@ -374,7 +373,7 @@ class Gatekeeper(APIView):
                 valid_values.append(entry)
 
         if not valid_values:
-            raise ResponseNotFound
+            raise Http404
 
         if not is_list:
             response = valid_values[0]
@@ -416,19 +415,17 @@ class Gatekeeper(APIView):
             response_args.pop('content_type')
 
             response_data = json_content
-            try:
-                pass
-                if request.method == 'GET':
-                    response_data = self.filter_response(response_data)
-            except ResponseNotFound:
-                return self.sts_not_found()
+            if request.method == 'GET':
+                response_data = self.filter_response(response_data)
             response_data = self.remove_internally_expanded_datastreams(response_data)
             # TODO: Change the response if the user didn't have permission to read any of the records
             response = Response(data=response_data, **response_args)
         else:
             response = HttpResponse(content=sts_response.content, **response_args)
 
-        if status_code == 404 or status_code >= 500:
+        if status_code == 404:
+            raise Http404
+        if status_code >= 500:
             return response
         if status_code == 201 and 'location' in sts_response.headers:
             self.create(request, sts_response)
