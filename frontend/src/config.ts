@@ -7,7 +7,7 @@ function getBoolEnv(name: string, defaultValue: boolean = false): boolean {
     return (['', '0', 'no', 'false', 'off'].indexOf(value) < 0) ? true : false;
 }
 
-const devMode = (getEnv(
+export const devMode = (getEnv(
     'NODE_ENV', 'development') === 'development');
 
 const useLocalOidc: boolean = getBoolEnv(

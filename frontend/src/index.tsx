@@ -12,6 +12,7 @@ import * as ReduxOidc from 'redux-oidc';
 import CallbackPage from './components/CallbackPage';
 import HomePage from './components/HomePage';
 import SilentRenewPage from './components/SilentRenewPage';
+import * as config from './config';
 import registerServiceWorker from './registerServiceWorker';
 import { rootReducer } from './state';
 import userManager from './userManager';
@@ -20,15 +21,19 @@ import './index.css';
 
 OidcClient.Log.logger = console;
 
+// Construct store with middlewares and enchancers
 const history = History.createBrowserHistory();
-const routerMiddleware = ReactRouterRedux.routerMiddleware(history);
-const loggerMiddleware = ReduxLogger.createLogger();
-const store = Redux.createStore(
-    rootReducer,
-    Redux.applyMiddleware(
-        loggerMiddleware,
-        routerMiddleware,
-    ));
+const middlewares: Redux.Middleware[] = [
+    ReactRouterRedux.routerMiddleware(history),
+];
+if (config.devMode) {
+    middlewares.push(ReduxLogger.createLogger());
+}
+const composeEnhancers = (
+    (config.devMode && window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__)
+    || Redux.compose);
+const storeEnhancer = Redux.applyMiddleware(...middlewares);
+const store = Redux.createStore(rootReducer, composeEnhancers(storeEnhancer));
 
 ReduxOidc.loadUser(store, userManager);
 
