@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'datahubhel',
     'gatekeeper',
     'mqttauth',
+    'service',
     'dhh_auth',
 ]
 
@@ -137,6 +138,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
         'dhh_auth.authentication.UserTokenAuthentication',
+        'service.authentication.ServiceTokenAuthentication',
     ] + ([
         'rest_framework.authentication.SessionAuthentication',
     ] if DEBUG else []),
