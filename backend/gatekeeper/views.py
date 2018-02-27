@@ -240,7 +240,7 @@ class Gatekeeper(APIView):
         remapped_headers = {}
 
         for header_name in headers:
-            if header_name.lower() in ['location', 'content-length'] or is_hop_by_hop(header_name):
+            if header_name.lower() in ['content-length'] or is_hop_by_hop(header_name):
                 continue
 
             remapped_headers[header_name] = headers[header_name]
