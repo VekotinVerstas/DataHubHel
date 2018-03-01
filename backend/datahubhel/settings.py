@@ -75,9 +75,12 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'guardian',
+    'django_extensions',
     'datahubhel',
     'gatekeeper',
     'mqttauth',
+    'service',
+    'dhh_auth',
 ]
 
 MIDDLEWARE = [
@@ -90,6 +93,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+AUTH_USER_MODEL = 'dhh_auth.User'
 
 TEMPLATES = [
     {
@@ -117,7 +122,6 @@ AUTH_PASSWORD_VALIDATORS = [] if DEBUG else [
 ]
 
 AUTHENTICATION_BACKENDS = [
-    'gatekeeper.backends.TokenBackend',
     'django.contrib.auth.backends.ModelBackend',
     'guardian.backends.ObjectPermissionBackend',
 ]
@@ -133,10 +137,10 @@ REST_FRAMEWORK = {
     ] if DEBUG else []),
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
+        'dhh_auth.authentication.UserTokenAuthentication',
+        'service.authentication.ServiceTokenAuthentication',
     ] + ([
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
     ] if DEBUG else []),
 }
 
@@ -182,3 +186,6 @@ LOGGING = {
 
 STA_VERSION = 'v1.0'
 GATEKEEPER_STS_BASE_URL = 'http://localhost:8080/FROST-Server'
+
+# GUARDIAN SETTINGS
+GUARDIAN_GET_INIT_ANONYMOUS_USER = 'dhh_auth.models.get_init_anonymous_user_instance'
