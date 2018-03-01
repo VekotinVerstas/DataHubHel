@@ -11,12 +11,14 @@ etc_dir = parent_dir('etc')
 env_file = etc_dir('env') if os.path.isdir(etc_dir) else checkout_dir('.env')
 root_dir = parent_dir if os.path.isdir(etc_dir) else checkout_dir
 default_var_root = root_dir('var')
+default_log_root = root_dir('log')
 
 env = environ.Env(
     DEBUG=(bool, True),
     TIER=(str, 'dev'),  # one of: prod, qa, stage, test, dev
     SECRET_KEY=(str, ''),
     VAR_ROOT=(str, default_var_root),
+    LOG_ROOT=(str, default_log_root),
     ALLOWED_HOSTS=(list, []),
     DATABASE_URL=(str,
                   'postgres://datahubhel:datahubhel@localhost/datahubhel'),
@@ -48,6 +50,8 @@ MEDIA_ROOT = var_root('media')
 STATIC_ROOT = var_root('static')
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
+
+log_root = env.path('LOG_ROOT')
 
 ROOT_URLCONF = 'datahubhel.urls'
 WSGI_APPLICATION = 'datahubhel.wsgi.application'
@@ -138,6 +142,43 @@ REST_FRAMEWORK = {
 
 CORS_ORIGIN_ALLOW_ALL = True
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': log_root('datahubhel_backend.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        '': {
+            'level': 'WARNING',
+            'handlers': ['console'],
+        },
+        'gatekeeper': {
+            'level': 'INFO',
+            'handlers': ['file', 'console'],
+            'propagate': False,
+        },
+        'mqttauth': {
+            'level': 'INFO',
+            'handlers': ['file', 'console'],
+            'propagate': False,
+        },
+    },
+}
+
 STA_VERSION = 'v1.0'
 GATEKEEPER_STS_BASE_URL = 'http://localhost:8080/FROST-Server'
-

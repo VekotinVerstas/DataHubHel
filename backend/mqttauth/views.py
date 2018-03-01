@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.http import HttpResponse
@@ -5,6 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 
 from gatekeeper.models import Datastream
 from gatekeeper.utils import parse_sta_url
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: Should be moved to a custom user manager when we have one
@@ -31,6 +35,9 @@ def auth(request):
     if user:
         response_status_code = 200
 
+    logger.info('MQTT authentication for user "{}" {}'.format(
+        request.POST.get('username'), 'succeeded' if response_status_code == 200 else 'failed'))
+
     return HttpResponse(status=response_status_code)
 
 
@@ -47,6 +54,9 @@ def superuser(request):
 
     if user.is_superuser:
         response_status_code = 200
+
+    logger.info('MQTT is super user check for user "{}": {}'.format(
+        request.POST.get('username'), 'True' if response_status_code == 200 else 'False'))
 
     return HttpResponse(status=response_status_code)
 
@@ -72,11 +82,15 @@ def acl(request):
 
     permission_name = permission_name_map.get(acc)
     if not permission_name:
+        logger.info('MQTT ACL check encountered unknown value for acc: "{}"'.format(acc))
         return HttpResponse(status=response_status_code)
+
+    log_text = 'MQTT ACL check for user "{}", topic "{}", perm "{}". Result: '.format(username, topic, permission_name)
 
     user = get_user_by_username_or_anonymous(username)
 
     if user.is_superuser:
+        logger.info(log_text + 'Access granted (superuser)')
         return HttpResponse(status=200)
 
     parse_result = parse_sta_url(topic, prefix=settings.STA_VERSION)
@@ -92,5 +106,7 @@ def acl(request):
                         response_status_code = 200
                 except Datastream.DoesNotExist:
                     pass
+
+    logger.info(log_text + ('Access granted' if response_status_code == 200 else 'Access denied'))
 
     return HttpResponse(status=response_status_code)
