@@ -7,7 +7,6 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 
 from dhh_auth.models import ClientPermission
-from dhh_auth.utils import get_perm_obj
 from gatekeeper.models import Datastream
 from gatekeeper.utils import parse_sta_url
 from service.models import Service, ServiceToken
@@ -110,12 +109,8 @@ def acl(request):
             if part['type'] == 'entity' and part['name'] == 'Datastream' and part['id']:
                 try:
                     ds = Datastream.objects.get(sts_id=part['id'])
-                    permission = get_perm_obj(permission_name, Datastream)
-
-                    ClientPermission.objects.get(permission=permission, client=service.client,
-                                                 content_type=permission.content_type, object_pk=ds.id)
-
-                    response_status_code = status.HTTP_200_OK
+                    if service.client.has_obj_perm(permission_name, ds, 'id'):
+                        response_status_code = status.HTTP_200_OK
                 except (Datastream.DoesNotExist, ClientPermission.DoesNotExist):
                     pass
 
