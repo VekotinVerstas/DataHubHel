@@ -16,6 +16,7 @@ import * as config from './config';
 import registerServiceWorker from './registerServiceWorker';
 import { rootReducer } from './state';
 import userManager from './userManager';
+import { initializeUserManager } from './users';
 
 import './index.css';
 
@@ -35,7 +36,7 @@ const composeEnhancers = (
 const storeEnhancer = Redux.applyMiddleware(...middlewares);
 const store = Redux.createStore(rootReducer, composeEnhancers(storeEnhancer));
 
-ReduxOidc.loadUser(store, userManager);
+initializeUserManager(store);
 
 ReactDOM.render(
     <ReactRedux.Provider store={store}>

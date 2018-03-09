@@ -14,7 +14,7 @@ const userManagerConfig = {
     client_id: config.oidcClientId,
     redirect_uri: `${baseUrl}/login-callback`,
     response_type: 'id_token token',
-    scope: 'openid email profile',
+    scope: `openid ${config.oidcScopes}`,
     silent_redirect_uri: `${baseUrl}/login-silent-renew`,
     automaticSilentRenew: true,
     filterProtocolClaims: true,

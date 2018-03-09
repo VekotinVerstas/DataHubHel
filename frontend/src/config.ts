@@ -10,15 +10,24 @@ function getBoolEnv(name: string, defaultValue: boolean = false): boolean {
 export const devMode = (getEnv(
     'NODE_ENV', 'development') === 'development');
 
-const useLocalOidc: boolean = getBoolEnv(
-    'REACT_APP_USE_LOCAL_OIDC', devMode);
-
 export const apiUrl: string = getEnv(
     'REACT_APP_API_URL', ((devMode) ? 'http://localhost:8001/api' : '/api'));
 
+const useLocalTunnistamo: boolean = getBoolEnv(
+    'REACT_APP_USE_LOCAL_TUNNISTAMO', devMode);
+
+export const tunnistamoUrl: string = getEnv(
+    'REACT_APP_TUNNISTAMO_URL', ((useLocalTunnistamo)
+                                 ? 'http://localhost:8000'
+                                 : 'https://api.hel.fi/sso'));
+
 export const oidcIssuer: string = getEnv(
-    'REACT_APP_OIDC_ISSUER', ((useLocalOidc) ? 'http://localhost:8000/openid' :
-                              'https://api.hel.fi/sso/openid'));
+    'REACT_APP_OIDC_ISSUER', `${tunnistamoUrl}/openid`);
 
 export const oidcClientId: string = getEnv(
-    'REACT_APP_OIDC_CLIENT_ID', '332114');
+    'REACT_APP_OIDC_CLIENT_ID',
+    'https://api.forumvirium.fi/auth/datahubhel-ui');
+
+export const dataHubHelApiId = 'https://api.forumvirium.fi/auth/datahubhel';
+
+export const oidcScopes = `email profile ${dataHubHelApiId}`;
