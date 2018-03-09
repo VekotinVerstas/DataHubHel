@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions, serializers
 
-from .models import User
+from ..models import User
 
 VISIBLE_USER_FIELDS = [
     'id',
