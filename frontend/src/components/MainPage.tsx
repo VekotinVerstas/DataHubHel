@@ -15,6 +15,7 @@ interface Props {
 
 interface State {
     actionResult?: string;
+    userTokens?: api.UserToken[];
 }
 
 class MainView extends React.Component<Props, State> {
@@ -23,6 +24,7 @@ class MainView extends React.Component<Props, State> {
         const state = this.state;
         const actionResult = state && state.actionResult;
         const userData = this.props.userData;
+        const userTokens = state && state.userTokens;
 
         const name = (
             (userData && userData.firstName) ? userData.firstName :
@@ -50,7 +52,14 @@ class MainView extends React.Component<Props, State> {
                     <button onClick={this.loadMe}>Reload my data</button>
                     <button onClick={this.forgetMe}>Forget me</button>
                     {(actionResult) ? <p>Result: {actionResult}</p> : null}
+
+                    <h2>User API tokens</h2>
+                    <button onClick={this.fetchUserTokens}>Fetch</button>
+                    {(userTokens) ? <pre>
+                        {JSON.stringify(userTokens, null, 2)}
+                    </pre> : null}
                 </>) : null}
+
             </div>
         );
     }
@@ -77,6 +86,12 @@ class MainView extends React.Component<Props, State> {
             const resultText = (forgotten) ? 'Forgotten' : 'Not registered';
             this.setState({actionResult: resultText});
             this.props.updateUserData(null);
+        });
+    }
+
+    private fetchUserTokens = () => {
+        api.getUserTokens().then((userTokens) => {
+            this.setState({userTokens: userTokens});
         });
     }
 }

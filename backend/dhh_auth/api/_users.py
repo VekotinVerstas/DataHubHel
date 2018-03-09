@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, serializers
 
 from ..models import User
+from ._utils import get_user_id_from_request
 
 VISIBLE_USER_FIELDS = [
     'id',
@@ -88,8 +89,3 @@ class RegisterView(UserView, generics.CreateAPIView):
 
 class ForgetView(UserView, generics.DestroyAPIView):
     pass
-
-
-def get_user_id_from_request(request):
-    user = getattr(request, 'user', None)
-    return user.id if user and user.is_authenticated else None

@@ -14,6 +14,11 @@ export interface RegisteredUserData extends UserData {
     dateJoined: string;
 }
 
+export interface UserToken {
+    key: string;
+    created: string;
+}
+
 let apiTokenInterceptor: number|null = null;
 
 const authAxios: Axios.AxiosInstance = globalAxios.create({
@@ -113,6 +118,14 @@ export function forgetMe(): Promise<boolean> {
             throw error;
         }
     );
+}
+
+export function getUserTokens(): Promise<UserToken[]> {
+    return apiAxios.get('/user-tokens/').then(
+        (result) => result.data.map((item: UserToken) => ({
+            key: item.key,
+            created: item.created,
+        })));
 }
 
 interface ApiUserData {
