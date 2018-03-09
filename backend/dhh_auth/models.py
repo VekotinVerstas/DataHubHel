@@ -8,7 +8,6 @@ from django.db import models
 from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
-from guardian.conf import settings as guardian_settings
 
 from dhh_auth.utils import get_perm_obj
 from utils.models import TimestampedUUIDModel
@@ -167,14 +166,3 @@ class User(AbstractClientUser, PermissionsMixin):
         Sends an email to this User.
         """
         send_mail(subject, message, from_email, [self.email], **kwargs)
-
-
-def get_init_anonymous_user_instance(User):
-    client = Client.objects.create()
-    kwargs = {
-        User.USERNAME_FIELD: guardian_settings.ANONYMOUS_USER_NAME,
-        'client': client,
-    }
-    user = User(**kwargs)
-    user.set_unusable_password()
-    return user

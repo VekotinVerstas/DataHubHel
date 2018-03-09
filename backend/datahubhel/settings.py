@@ -74,7 +74,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    'guardian',
     'django_extensions',
     'datahubhel',
     'gatekeeper',
@@ -123,7 +122,6 @@ AUTH_PASSWORD_VALIDATORS = [] if DEBUG else [
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'guardian.backends.ObjectPermissionBackend',
 ]
 
 REST_FRAMEWORK = {
@@ -186,6 +184,3 @@ LOGGING = {
 
 STA_VERSION = 'v1.0'
 GATEKEEPER_STS_BASE_URL = 'http://localhost:8080/FROST-Server'
-
-# GUARDIAN SETTINGS
-GUARDIAN_GET_INIT_ANONYMOUS_USER = 'dhh_auth.models.get_init_anonymous_user_instance'
