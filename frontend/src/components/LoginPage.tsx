@@ -8,7 +8,7 @@ class LoginPage extends React.Component {
             <div>
                 <h1>Welcome to DataHubHel!</h1>
                 <p>Please log in to continue</p>
-                <button onClick={this.onLoginButtonClick}>Login</button>
+                <button onClick={this.onLoginButtonClick}>Login or Register</button>
             </div>
         );
     }

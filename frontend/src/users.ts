@@ -2,6 +2,7 @@ import * as OidcClient from  'oidc-client';
 import { Dispatch, Store } from 'redux';
 import * as ReduxOidc from 'redux-oidc';
 
+import * as actions from './actions';
 import * as api from './api';
 import { RootState } from './state';
 import userManager from './userManager';
@@ -20,9 +21,18 @@ function handleUserLoaded(dispatch: Dispatch<RootState>, user?: OidcClient.User)
         handleUserUnloaded(dispatch);
         return;
     }
-    api.handleLogin(user);
+    api.handleLogin(user).then(() => {
+        api.getPersonalData().then((receivedUserData) => {
+            if (receivedUserData) {
+                dispatch(actions.setRegisteredUser(receivedUserData));
+            } else {
+                dispatch(actions.setUnregisteredUser());
+            }
+        });
+    });
 }
 
 function handleUserUnloaded(dispatch: Dispatch<RootState>) {
     api.handleLogout();
+    dispatch(actions.clearRegistrationStatus());
 }
