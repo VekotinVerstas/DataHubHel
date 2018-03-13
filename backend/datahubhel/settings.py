@@ -25,6 +25,7 @@ env = environ.Env(
     CACHE_URL=(str, 'locmemcache://'),
     EMAIL_URL=(str, 'consolemail://'),
     SENTRY_DSN=(str, ''),
+    TUNNISTAMO_ISSUER_URL=(str, ''),  # Default depends on TIER, see below
 )
 if os.path.exists(env_file):  # pragma: no cover
     env.read_env(env_file)
@@ -33,6 +34,10 @@ DEBUG = env.bool('DEBUG')
 TIER = env.str('TIER')
 SECRET_KEY = env.str('SECRET_KEY') or ('xxx' if DEBUG else '')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+
+TUNNISTAMO_ISSUER_URL = env.str('TUNNISTAMO_ISSUER_URL', default=(
+    'http://localhost:8000/openid' if TIER == 'dev' else
+    'https://api.hel.fi/sso/openid'))
 
 DATABASES = {'default': env.db()}
 CACHES = {'default': env.cache()}
@@ -134,12 +139,20 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ] if DEBUG else []),
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'helusers.oidc.ApiTokenAuthentication',
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
         'dhh_auth.authentication.UserTokenAuthentication',
         'service.authentication.ServiceTokenAuthentication',
     ] + ([
         'rest_framework.authentication.SessionAuthentication',
     ] if DEBUG else []),
+}
+
+OIDC_API_TOKEN_AUTH = {
+    'AUDIENCE': 'https://api.forumvirium.fi/auth/datahubhel',
+    'API_AUTHORIZATION_FIELD': 'https://api.hel.fi/auth',
+    'ISSUER': TUNNISTAMO_ISSUER_URL,
+    'USER_RESOLVER': 'dhh_auth.tunnistamo.resolve_user',
 }
 
 CORS_ORIGIN_ALLOW_ALL = True
