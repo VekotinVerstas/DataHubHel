@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'mqttauth',
     'service',
     'dhh_auth',
+    'ta120_adapter',
 ]
 
 MIDDLEWARE = [
