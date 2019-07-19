@@ -39,6 +39,9 @@ class ThingLocation(TimestampedUUIDModel):
 
 
 class Sensor(TimestampedUUIDModel):
+    sensor_id = models.CharField(max_length=60, unique=True)
+    key = models.CharField(max_length=128)
+
     name = models.CharField(max_length=60)
     sensor_type = models.CharField(max_length=60)
     thing = models.ForeignKey(Thing, on_delete=models.PROTECT)
