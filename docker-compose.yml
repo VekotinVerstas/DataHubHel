@@ -1,0 +1,186 @@
+version: '2'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.3.0 #'bitnami/zookeeper:3'
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - 2181:2181
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  kafka:
+    image: confluentinc/cp-enterprise-kafka:5.3.0 #'bitnami/kafka:2'
+    restart: always
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - 29092:29092
+      - 9092:9092
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka:29092
+      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+  datahubhel_db:
+    image: kartoza/postgis #postgres:latest
+    hostname: datahubhel_db
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: datahubhel
+      POSTGRES_DBNAME: datahubhel
+      POSTGRES_PASS: datahubhel
+    volumes:
+      - postgres-datahubhel:/var/lib/postgresql
+    container_name: datahubhel_db
+  datahubhel:
+    build: .
+    environment:
+      DB_HOST: datahubhel_db
+      DB_USER: datahubhel
+      DB_PASSWORD: datahubhel
+      DB_PORT: 5432
+      DB_NAME: datahubhel
+    entrypoint: /entrypoint/django-entrypoint.sh
+    ports:
+      - "8000:8000"
+    depends_on:
+      - datahubhel_db
+    volumes:
+      - ./backend:/backend
+    stdin_open: true
+    tty: true
+  ksql-server:
+    image: confluentinc/cp-ksql-server:5.3.0
+    hostname: ksql-server
+    container_name: ksql-server
+    depends_on:
+      - kafka
+    ports:
+      - 8088:8088
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksql"
+      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
+      KSQL_BOOTSTRAP_SERVERS: "kafka:9092"
+      KSQL_HOST_NAME: ksql-server
+      KSQL_APPLICATION_ID: "cp-all-in-one"
+      KSQL_LISTENERS: "http://ksql-server:8088"
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KSQL_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+      KSQL_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
+  ksql-client:
+    image: confluentinc/cp-ksql-cli:5.3.0
+    container_name: ksql-cli
+    depends_on:
+      # - connect
+      - ksql-server
+    entrypoint: /bin/sh
+    tty: true
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.3.0
+    hostname: schema-registry
+    container_name: schema-registry
+    restart: always
+    depends_on:
+      - zookeeper
+      - kafka
+    ports:
+      - 8081:8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+  kafka-sink:
+    image: postgres:9.6.6-alpine
+    hostname: postgres
+    container_name: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: noisedata
+    ports:
+      - "5430:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  kafka-connector:
+    image: confluentinc/cp-kafka-connect:5.3.0
+    container_name: connect
+    restart: always
+    depends_on:
+      - schema-registry
+      - kafka
+      - zookeeper
+    ports:
+      - 8083:8083
+    environment:
+        CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+        CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+        CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+        CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+        CONNECT_REST_ADVERTISED_HOST_NAME: connect
+        CONNECT_GROUP_ID: compose-connect-group
+        CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+        CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+        CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+        CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+        CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+        CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+        CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+        CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+        CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+        CONNECT_PLUGIN_PATH: /usr/share/java,/etc/kafka-connect/uber/,/etc/kafka-connect/plugins
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.3.0
+    container_name: elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms750m -Xmx750m"
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch-vol:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.3.0
+    container_name: kibana
+    volumes:
+      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+    restart: always
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:7.3.0
+  #   environment:
+  #     - cluster.name=docker-cluster
+  #   volumes:
+  #     - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+  #     - ./schema_data.avsc:/schema_data.avsc
+  #   command: bash -c "logstash -f /usr/share/logstash/pipeline/logstash.conf"
+  #   ports:
+  #     - 9600:9600
+  #   depends_on:
+  #     - elasticsearch
+
+volumes:
+  elasticsearch-vol:
+  postgres-data:
+  postgres-datahubhel:
