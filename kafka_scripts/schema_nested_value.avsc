@@ -1,0 +1,85 @@
+{
+        "type": "record",
+        "namespace": "noiseNameSpace",
+        "name": "value",
+        "fields": [
+            {
+                "name": "results",
+                "type": {
+                    "type": "record",
+                    "name": "results",
+                    "fields": [
+                        {
+                            "name": "level",
+                            "type": "float"
+                        },
+                        {
+                            "name": "overload",
+                            "type":["boolean", "null"]
+                        },
+                        {
+                            "name": "underrange",
+                            "type":["boolean", "null"]
+                        },
+                        {
+                            "name": "battery",
+                            "type": ["float", "null"]
+                        },
+                        {
+                            "name": "power",
+                            "type": ["boolean", "null"]
+                        },
+                        {
+                            "name": "wifi_strength",
+                            "type": ["float", "null"]
+                        },
+                        {
+                            "name": "modem_strength",
+                            "type": ["float", "null"]
+                        },
+                        {
+                            "name": "laeq1s_registers",
+                            "type": ["string", "null"]
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "thing",
+                "type":{
+                    "name": "thing",
+                    "type": "record",
+                    "fields": [
+                        {
+                            "name": "location",
+                            "type": {
+                                "type": "array",
+                                "items":"float"
+                            }
+                        },
+                        {
+                            "name": "thing_name",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "sensor",
+                "type": {
+                    "type": "record",
+                    "name": "sensor",
+                    "fields": [
+                        {
+                            "name": "sensor_name",
+                            "type": "string"
+                        },
+                        {
+                            "name": "sensor_key",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        ]
+}
