@@ -1,0 +1,17 @@
+{
+    "name": "es-location-sink",
+    "config": {
+      "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://schema-registry:8081",
+
+      "connection.url": "http://elasticsearch:9200",
+
+      "type.name": "_doc",
+
+      "topics": "ELASTIC_LOCATION_STREAM",
+      "key.ignore": true,
+      "schema.ignore": true
+
+    }
+  }
