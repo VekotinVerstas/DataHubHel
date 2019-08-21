@@ -53,6 +53,7 @@ services:
       DB_PASSWORD: datahubhel
       DB_PORT: 5432
       DB_NAME: datahubhel
+      DATABASE_URL: postgis://datahubhel:datahubhel@datahubhel_db/datahubhel
     entrypoint: /entrypoint/django-entrypoint.sh
     ports:
       - "8000:8000"
