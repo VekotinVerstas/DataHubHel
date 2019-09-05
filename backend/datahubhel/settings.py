@@ -20,8 +20,7 @@ env = environ.Env(
     VAR_ROOT=(str, default_var_root),
     LOG_ROOT=(str, default_log_root),
     ALLOWED_HOSTS=(list, []),
-    DATABASE_URL=(str,
-                  'postgres://datahubhel:datahubhel@localhost/datahubhel'),
+    DATABASE_URL=(str, 'postgis:///datahubhel'),
     CACHE_URL=(str, 'locmemcache://'),
     EMAIL_URL=(str, 'consolemail://'),
     SENTRY_DSN=(str, ''),
@@ -75,6 +74,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
     'raven.contrib.django.raven_compat',
     'rest_framework',
     'rest_framework.authtoken',
@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'mqttauth',
     'service',
     'dhh_auth',
+    'ta120_adapter',
 ]
 
 MIDDLEWARE = [
