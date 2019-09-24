@@ -46,21 +46,15 @@ services:
       - postgres-datahubhel:/var/lib/postgresql
     container_name: datahubhel_db
   datahubhel:
-    build: .
+    build: ./backend
     environment:
-      DB_HOST: datahubhel_db
-      DB_USER: datahubhel
-      DB_PASSWORD: datahubhel
-      DB_PORT: 5432
-      DB_NAME: datahubhel
       DATABASE_URL: postgis://datahubhel:datahubhel@datahubhel_db/datahubhel
-    entrypoint: /entrypoint/django-entrypoint.sh
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - datahubhel_db
     volumes:
-      - ./backend:/backend
+      - ./backend:/app
     stdin_open: true
     tty: true
   ksql-server:

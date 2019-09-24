@@ -9,7 +9,7 @@ done
 echo "Finished loading database"
 
 echo "Apply database migrations"
-python /backend/manage.py migrate --noinput
+./manage.py migrate --noinput
 
 echo "Running server"
-python /backend/manage.py runserver 0.0.0.0:8000
+./manage.py runserver 0.0.0.0:8000
