@@ -1,0 +1,2 @@
+#!/bin/sh
+PYTHONPATH=$(dirname "$0")/.. python -m kafka_scripts.open311_consumer

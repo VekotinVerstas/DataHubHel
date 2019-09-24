@@ -1,0 +1,11 @@
+{
+    "type": "record",
+    "namespace": "noiseNameSpace",
+    "name": "key",
+    "fields": [
+        {
+            "name": "sensor_name",
+            "type": "string"
+        }
+    ]
+}
