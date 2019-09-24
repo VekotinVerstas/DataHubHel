@@ -61,41 +61,21 @@ services:
     image: confluentinc/cp-ksql-server:5.3.0
     hostname: ksql-server
     container_name: ksql-server
+    depends_on:
+      - kafka
     ports:
       - 8088:8088
     environment:
       KSQL_CONFIG_DIR: "/etc/ksql"
       KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
-      KSQL_BOOTSTRAP_SERVERS: ${KAFKA_CLUSTERS}
+      KSQL_BOOTSTRAP_SERVERS: "kafka:9092"
       KSQL_HOST_NAME: ksql-server
       KSQL_APPLICATION_ID: "cp-all-in-one"
       KSQL_LISTENERS: "http://ksql-server:8088"
       KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       KSQL_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
       KSQL_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
-
-      # for TLS connection
-      KSQL_SECURITY_PROTOCOL: ssl
-      KSQL_SSL_KEYSTORE_TYPE: PKCS12
-      KSQL_SSL_KEYSTORE_LOCATION: client.keystore.p12
-      KSQL_SSL_KEYSTORE_PASSWORD: ${KSQL_SSL_KEY_PASSWORD}
-      KSQL_SSL_KEY_PASSWORD: ${KSQL_SSL_KEY_PASSWORD}
-      KSQL_SSL_TRUSTSTORE_TYPE: JKS
-      KSQL_SSL_TRUSTSTORE_LOCATION: client.truststore.jks
-      KSQL_SSL_TRUSTSTORE_PASSWORD: ${KSQL_SSL_KEY_PASSWORD}
-      KSQL_KSQL_SERVICE_ID: dummy_service
-
-      # for TLS schema registry connection
-      KSQL_KSQL_SCHEMA_REGISTRY_URL: ${SCHEMA_REGISTRY_URL}
-      KSQL_KSQL_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION: schema_registry.truststore.jks
-      KSQL_KSQL_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD: ${KSQL_SSL_KEY_PASSWORD}
-      KSQL_KSQL_SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE: "USER_INFO"
-      KSQL_KSQL_SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO: ${AVAIN_USER_PASSWORD}
-
-    volumes:
-      - ./secrets/client.keystore.p12:/client.keystore.p12
-      - ./secrets/client.truststore.jks:/client.truststore.jks
-      - ./secrets/schema_registry.truststore.jks:/schema_registry.truststore.jks
   ksql-client:
     image: confluentinc/cp-ksql-cli:5.3.0
     container_name: ksql-cli
