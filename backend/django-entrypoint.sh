@@ -1,12 +1,17 @@
 #!/bin/bash
 
-until nc -z -w 50 datahubhel_db 5432
-do
-    echo "Connecting to database..."
-    sleep 2
+check_db_connection_script="
+from django.db import connection
+try:
+    connection.connect()
+except Exception as error:
+    raise SystemExit(error)
+"
+until ./manage.py shell -c "$check_db_connection_script"; do
+    echo "Waiting for database to come up..."
+    sleep 1
 done
-
-echo "Finished loading database"
+echo "Database seems to be ready."
 
 echo "Apply database migrations"
 ./manage.py migrate --noinput
