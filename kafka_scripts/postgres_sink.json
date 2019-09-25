@@ -3,11 +3,10 @@
       "topics": "LOUDNOISE",
       "key.converter": "org.apache.kafka.connect.storage.StringConverter",
 
-
       "value.converter": "io.confluent.connect.avro.AvroConverter",
       "value.converter.schema.registry.url": "http://schema-registry:8081",
 
-      "connection.url": "jdbc:postgresql://postgres:5432/noisedata",
+      "connection.url": "jdbc:postgresql://kafka-sink-db:5432/noisedata",
       "connection.user": "postgres",
       "connection.password": "postgres",
       "auto.create": "true",
