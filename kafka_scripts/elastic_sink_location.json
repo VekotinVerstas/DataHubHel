@@ -12,6 +12,5 @@
       "topics": "ELASTIC_LOCATION_STREAM",
       "key.ignore": true,
       "schema.ignore": true
-
     }
   }
