@@ -43,8 +43,9 @@ vars().update(env.email_url())  # EMAIL_BACKEND, EMAIL_HOST, etc.
 RAVEN_CONFIG = {
     'dsn': env.str('SENTRY_DSN'),
     'release': subprocess.Popen(
-        'git describe --always --dirty', cwd=checkout_dir(), shell=True,
-        stdout=subprocess.PIPE).communicate()[0].decode('utf-8').strip(),
+        'git describe --always --dirty', cwd=parent_dir(), shell=True,
+        stdout=subprocess.PIPE).communicate()[0].decode('utf-8').strip() if (
+            os.path.exists(parent_dir('.git'))) else None,
 }
 
 var_root = env.path('VAR_ROOT')
