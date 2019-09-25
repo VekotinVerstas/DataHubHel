@@ -5,8 +5,6 @@ services:
     image: confluentinc/cp-zookeeper:5.3.0 #'bitnami/zookeeper:3'
     hostname: zookeeper
     container_name: zookeeper
-    ports:
-      - 2181:2181
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -16,8 +14,7 @@ services:
     hostname: kafka
     container_name: kafka
     ports:
-      - 29092:29092
-      - 9092:9092
+      - "127.0.0.1:29092:29092"
     depends_on:
       - zookeeper
     environment:
@@ -36,8 +33,6 @@ services:
   datahubhel_db:
     image: kartoza/postgis #postgres:latest
     hostname: datahubhel_db
-    ports:
-      - 5432:5432
     environment:
       POSTGRES_USER: datahubhel
       POSTGRES_DBNAME: datahubhel
@@ -64,7 +59,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - 8088:8088
+      - "127.0.0.1:8088:8088"
     environment:
       KSQL_CONFIG_DIR: "/etc/ksql"
       KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
@@ -93,7 +88,7 @@ services:
       - zookeeper
       - kafka
     ports:
-      - 8081:8081
+      - "127.0.0.1:8081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
@@ -104,8 +99,6 @@ services:
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: noisedata
-    ports:
-      - "5430:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
   kafka-connector:
@@ -117,7 +110,7 @@ services:
       - kafka
       - zookeeper
     ports:
-      - 8083:8083
+      - "127.0.0.1:8083:8083"
     environment:
         CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
         CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
@@ -151,7 +144,7 @@ services:
     volumes:
       - elasticsearch-vol:/usr/share/elasticsearch/data
     ports:
-      - 9200:9200
+      - "127.0.0.1:9200:9200"
   kibana:
     image: docker.elastic.co/kibana/kibana:7.3.0
     container_name: kibana
@@ -159,7 +152,7 @@ services:
       - ./kibana.yml:/usr/share/kibana/config/kibana.yml
     restart: always
     ports:
-      - 5601:5601
+      - "127.0.0.1:5601:5601"
     depends_on:
       - elasticsearch
   # logstash:
