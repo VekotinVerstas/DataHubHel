@@ -30,3 +30,4 @@ requests==2.18.4
 six==1.11.0               # via django-environ, django-extensions, pyjwkest
 typing==3.6.4             # via django-extensions
 urllib3==1.22             # via requests
+uwsgi==2.0.18
