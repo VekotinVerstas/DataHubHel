@@ -41,6 +41,7 @@ RUN chown www-data /var/lib/datahubhel
 
 USER www-data
 
+CMD ["production"]
 
 # Development docker environment
 FROM appbase as development
@@ -51,3 +52,4 @@ RUN pip install --no-cache-dir \
     -r requirements-stylecheck.txt \
     -r requirements-test.txt
 
+CMD ["development"]
