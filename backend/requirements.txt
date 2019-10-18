@@ -2,6 +2,8 @@
 #
 #   prequ update
 #
+--no-binary psycopg2
+
 avro-python3==1.9.0       # via confluent-kafka
 boltons==17.2.0
 certifi==2018.1.18        # via requests
@@ -20,7 +22,7 @@ drf-oidc-auth==0.9        # via django-helusers
 fastavro==0.22.3          # via confluent-kafka
 future==0.16.0            # via pyjwkest
 idna==2.6                 # via requests
-psycopg2-binary==2.7.4
+psycopg2==2.8.3
 pycryptodomex==3.4.12     # via pyjwkest
 pyjwkest==1.4.0           # via drf-oidc-auth
 pyjwt==1.5.3              # via djangorestframework-jwt

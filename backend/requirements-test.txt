@@ -2,6 +2,8 @@
 #
 #   prequ update
 #
+--no-binary psycopg2
+
 attrs==17.4.0             # via pytest
 coverage==4.5.1           # via pytest-cov
 pluggy==0.6.0             # via pytest
