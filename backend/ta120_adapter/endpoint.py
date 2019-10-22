@@ -1,10 +1,19 @@
+import json
+from typing import Any, Callable, Mapping, Tuple
+
 from rest_framework import generics, permissions, serializers
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework.response import Response
 
-from .authentication import SensorKeyAuthentication, SensorUser
+from datahubhel.gateway_utils import generate_ids, get_kafka_producer, make_ms_timestamp
+
+from .authentication import SensorKeyAuthentication
+from .models import Sensor
 from .ul20 import UltraLight20Parser, UltraLight20Renderer
+from .utils import dump_laeq1s_registers
+
+TOPIC = 'fi.fvh.observations.noise.ta120'
 
 
 class QueryParametersSerializer(serializers.Serializer):
@@ -34,6 +43,19 @@ class SensorDataSerializer(serializers.Serializer):
         label="laeq1s_registers", help_text="LAeq1s registers", required=False)
 
 
+SERIALIZERS = {
+    'laeq1s_registers': dump_laeq1s_registers,
+}
+
+
+# Map each property key to a pair of label and serializer,
+# e.g. "n" is mapped to ("level", json.dumps).
+PROPERTIES: Mapping[str, Tuple[str, Callable[[Any], str]]] = {
+    k: (v.label, SERIALIZERS.get(v.label, json.dumps))  # type: ignore
+    for (k, v) in SensorDataSerializer().fields.items()
+}
+
+
 class Endpoint(generics.GenericAPIView):
     parser_classes = [
         UltraLight20Parser,
@@ -58,21 +80,27 @@ class Endpoint(generics.GenericAPIView):
         body_parser.is_valid(raise_exception=True)
         data = body_parser.validated_data
 
-        # TODO: Consume the sensor readings here
+        # assert isinstance(request.user, SensorUser)
+        sensor = request.user.sensor  # type: Sensor
 
-        # TODO: Remove the following debugging code
-        print(params)
-        print(data)
-        assert isinstance(request.user, SensorUser)
-        sensor = request.user.sensor
-        print(sensor.pk, sensor.sensor_id, sensor)
+        event_time = make_ms_timestamp(params.get('t'))
 
-        # TODO: Design how to implement sensor configuration changes
-        if 0:
-            return Response()
-        else:
-            # Parameters of the sensor can be changed in the response,
-            # e.g. something like this (to set averaging time to 30 secs):
-            return Response({
-                '{.sensor_id}@setConfig'.format(sensor): 't=0030',
+        producer = get_kafka_producer()
+        ids = iter(generate_ids())
+        for (prop_key, prop_value) in data.items():
+            (name, serializer) = PROPERTIES[prop_key]
+            producer.produce(topic=TOPIC, key=sensor.sensor_id, value={
+                'id': next(ids),
+                'time': event_time,
+                'name': name,
+                'value': serializer(prop_value),
             })
+        producer.flush()
+
+        return Response()
+
+        # Parameters of the sensor can be changed in the response,
+        # e.g. something like this (to set averaging time to 30 secs):
+        # return Response({
+        #     '{.sensor_id}@setConfig'.format(sensor): 't=0030',
+        # })
