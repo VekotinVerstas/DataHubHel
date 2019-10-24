@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db import models
 
 from datahubhel.base_models import EntityBase

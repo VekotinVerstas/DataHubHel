@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'service',
     'dhh_auth',
     'ta120_adapter',
+    'datahubhel.core',
 ]
 
 MIDDLEWARE = [
