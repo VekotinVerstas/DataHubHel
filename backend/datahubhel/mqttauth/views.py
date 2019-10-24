@@ -9,7 +9,7 @@ from rest_framework import status
 from datahubhel.dhh_auth.models import ClientPermission
 from datahubhel.core.models import Datastream
 from datahubhel.gatekeeper.utils import parse_sta_url
-from service.models import Service, ServiceToken
+from datahubhel.service.models import Service, ServiceToken
 
 logger = logging.getLogger(__name__)
 

@@ -82,7 +82,7 @@ INSTALLED_APPS = [
     'datahubhel',
     'datahubhel.gatekeeper',
     'datahubhel.mqttauth',
-    'service',
+    'datahubhel.service',
     'datahubhel.dhh_auth',
     'ta120_adapter',
     'datahubhel.core',
@@ -143,7 +143,7 @@ REST_FRAMEWORK = {
         'helusers.oidc.ApiTokenAuthentication',
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
         'datahubhel.dhh_auth.authentication.UserTokenAuthentication',
-        'service.authentication.ServiceTokenAuthentication',
+        'datahubhel.service.authentication.ServiceTokenAuthentication',
     ] + ([
         'rest_framework.authentication.SessionAuthentication',
     ] if DEBUG else []),
