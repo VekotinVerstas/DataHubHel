@@ -9,7 +9,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
-from dhh_auth.utils import get_perm_obj
+from datahubhel.dhh_auth.utils import get_perm_obj
 from datahubhel.base_models import TimestampedUUIDModel
 
 

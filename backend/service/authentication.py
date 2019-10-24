@@ -1,4 +1,4 @@
-from dhh_auth.authentication import ClientTokenAuthentication
+from datahubhel.dhh_auth.authentication import ClientTokenAuthentication
 from service.models import ServiceToken
 
 

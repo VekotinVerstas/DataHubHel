@@ -83,7 +83,7 @@ INSTALLED_APPS = [
     'gatekeeper',
     'mqttauth',
     'service',
-    'dhh_auth',
+    'datahubhel.dhh_auth',
     'ta120_adapter',
     'datahubhel.core',
 ]
@@ -142,7 +142,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'helusers.oidc.ApiTokenAuthentication',
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
-        'dhh_auth.authentication.UserTokenAuthentication',
+        'datahubhel.dhh_auth.authentication.UserTokenAuthentication',
         'service.authentication.ServiceTokenAuthentication',
     ] + ([
         'rest_framework.authentication.SessionAuthentication',
