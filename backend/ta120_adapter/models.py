@@ -1,7 +1,7 @@
 from django.contrib.gis.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from utils.models import TimestampedUUIDModel
+from datahubhel.base_models import TimestampedUUIDModel
 
 
 class Location(models.Model):
