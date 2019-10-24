@@ -1,6 +1,6 @@
 from django.db import models
 
-from datahubhel.base_models import EntityBase
+from datahubhel.base_models import EntityBase, TimestampedUUIDModel
 
 
 class Thing(EntityBase):
@@ -23,3 +23,14 @@ class Datastream(EntityBase):
             ('view_datastream', 'Can view datastream'),
             ('create_observation', 'Can create observation to datastream'),
         )
+
+
+class Sensor(TimestampedUUIDModel):
+    sensor_id = models.CharField(max_length=60, unique=True)
+    name = models.CharField(max_length=60)
+    sensor_type = models.CharField(max_length=60)
+    thing = models.ForeignKey(Thing, on_delete=models.PROTECT)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
