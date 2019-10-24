@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class GatekeeperConfig(AppConfig):
-    name = 'gatekeeper'
+    name = 'datahubhel.gatekeeper'

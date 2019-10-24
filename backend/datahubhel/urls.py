@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 import datahubhel.dhh_auth.urls
-import gatekeeper.urls
+import datahubhel.gatekeeper.urls
 import mqttauth.urls
 import service.urls
 import ta120_adapter.urls
@@ -13,7 +13,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(datahubhel.dhh_auth.urls)),
     path('api/', include(service.urls)),
-    path('api/', include(gatekeeper.urls)),
+    path('api/', include(datahubhel.gatekeeper.urls)),
     path('mqttauth/', include(mqttauth.urls)),
     path('cesva/v1/', include(ta120_adapter.urls)),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

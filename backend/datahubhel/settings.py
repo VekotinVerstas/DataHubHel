@@ -80,7 +80,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_extensions',
     'datahubhel',
-    'gatekeeper',
+    'datahubhel.gatekeeper',
     'mqttauth',
     'service',
     'datahubhel.dhh_auth',
