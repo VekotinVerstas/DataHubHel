@@ -1,4 +1,4 @@
-version: "2"
+version: "3.7"
 
 services:
   zookeeper:
@@ -41,10 +41,14 @@ services:
       - datahubhel-db-data:/var/lib/postgresql
 
   datahubhel:
-    build: ./backend
+    build:
+      context: ./backend
+      target: ${BUILD_TARGET:-development}
     environment:
       DATABASE_URL: >-
         postgis://datahubhel:datahubhel@datahubhel-db/datahubhel
+    env_file:
+      - "env.${BUILD_TARGET:-development}"
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

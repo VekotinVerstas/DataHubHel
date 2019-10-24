@@ -1,0 +1,8 @@
+Dockerfile
+.git
+.gitignore
+node_modules
+*.py[cod]
+__pycache__
+.tox
+venv

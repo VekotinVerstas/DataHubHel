@@ -15,5 +15,5 @@ urlpatterns = [
     path('api/', include(service.urls)),
     path('api/', include(gatekeeper.urls)),
     path('mqttauth/', include(mqttauth.urls)),
-    path('ta120/', include(ta120_adapter.urls)),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('cesva/v1/', include(ta120_adapter.urls)),
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
