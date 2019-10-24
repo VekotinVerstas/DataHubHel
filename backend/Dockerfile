@@ -1,4 +1,4 @@
-FROM python:3.6-slim as appbase
+FROM python:3.7-slim as appbase
 
 ENV PYTHONUNBUFFERED 1
 WORKDIR /app

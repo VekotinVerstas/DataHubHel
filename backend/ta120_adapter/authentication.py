@@ -45,7 +45,7 @@ class SensorKeyAuthentication(BaseAuthentication):
         model = self.get_model()
         sensor = model.objects.filter(sensor_id=sensor_id).first()
         correct_key = sensor.key if sensor else ''
-        if hmac.compare_digest(sensor.key, key) and correct_key:
+        if hmac.compare_digest(correct_key, key) and correct_key:
             return (SensorUser(sensor), sensor)
         raise AuthenticationFailed(_('Sensor authentication failed'))
 
