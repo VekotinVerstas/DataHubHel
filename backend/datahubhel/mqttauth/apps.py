@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class GatekeeperConfig(AppConfig):
-    name = 'mqttauth'
+    name = 'datahubhel.mqttauth'

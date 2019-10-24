@@ -81,7 +81,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'datahubhel',
     'datahubhel.gatekeeper',
-    'mqttauth',
+    'datahubhel.mqttauth',
     'service',
     'datahubhel.dhh_auth',
     'ta120_adapter',
