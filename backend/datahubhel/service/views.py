@@ -3,8 +3,8 @@ from django.db.models import Q
 from rest_framework import mixins, viewsets
 from rest_framework.viewsets import GenericViewSet
 
-from dhh_auth.models import ClientPermission
-from service.permissions import ServicePermissions
+from datahubhel.dhh_auth.models import ClientPermission
+from datahubhel.service.permissions import ServicePermissions
 
 from .models import Service, ServiceToken
 from .serializers import SerializerPermissionSerializer, ServiceKeySerializer, ServiceSerializer

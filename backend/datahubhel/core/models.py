@@ -1,18 +1,6 @@
-from django.conf import settings
 from django.db import models
 
-
-class EntityBase(models.Model):
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
-    sts_id = models.CharField(max_length=255, unique=True)
-    name = models.CharField(max_length=255, null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
-
-    class Meta:
-        abstract = True
-
-    def __str__(self):
-        return self.name
+from datahubhel.base_models import EntityBase, TimestampedUUIDModel
 
 
 class Thing(EntityBase):
@@ -35,3 +23,14 @@ class Datastream(EntityBase):
             ('view_datastream', 'Can view datastream'),
             ('create_observation', 'Can create observation to datastream'),
         )
+
+
+class Sensor(TimestampedUUIDModel):
+    sensor_id = models.CharField(max_length=60, unique=True)
+    name = models.CharField(max_length=60)
+    sensor_type = models.CharField(max_length=60)
+    thing = models.ForeignKey(Thing, on_delete=models.PROTECT)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name

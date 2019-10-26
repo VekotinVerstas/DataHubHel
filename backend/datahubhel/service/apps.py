@@ -2,8 +2,8 @@ from django.apps import AppConfig
 
 
 class ServiceConfig(AppConfig):
-    name = 'service'
+    name = 'datahubhel.service'
     verbose_name = 'DataHubHel Service'
 
     def ready(self):
-        import service.signals.handlers  # noqa
+        import datahubhel.service.signals.handlers  # noqa
