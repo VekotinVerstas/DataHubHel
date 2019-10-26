@@ -8,11 +8,13 @@ import datahubhel.gatekeeper.urls
 import datahubhel.mqttauth.urls
 import datahubhel.service.urls
 import ta120_adapter.urls
+import datahubhel.sta.urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(datahubhel.dhh_auth.urls)),
     path('api/', include(datahubhel.service.urls)),
+    path('api/', include(datahubhel.sta.urls)),
     path('api/', include(datahubhel.gatekeeper.urls)),
     path('mqttauth/', include(datahubhel.mqttauth.urls)),
     path('cesva/v1/', include(ta120_adapter.urls)),
