@@ -5,7 +5,7 @@
 boltons==17.2.0
 certifi==2018.1.18        # via requests
 chardet==3.0.4            # via requests
-django==2.0.2
+django==2.2.24
 django-cors-headers==2.2.0
 django-enumfields==0.9.0
 django-environ==0.4.4
