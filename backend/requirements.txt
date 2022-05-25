@@ -20,7 +20,7 @@ idna==2.6                 # via requests
 psycopg2-binary==2.7.4
 pycryptodomex==3.4.12     # via pyjwkest
 pyjwkest==1.4.0           # via drf-oidc-auth
-pyjwt==1.5.3              # via djangorestframework-jwt
+pyjwt==2.4.0              # via djangorestframework-jwt
 pytz==2018.3              # via django
 raven==6.6.0
 requests==2.18.4
