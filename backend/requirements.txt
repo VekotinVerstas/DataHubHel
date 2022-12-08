@@ -3,7 +3,7 @@
 #   prequ update
 #
 boltons==17.2.0
-certifi==2018.1.18        # via requests
+certifi==2022.12.7        # via requests
 chardet==3.0.4            # via requests
 django==2.0.2
 django-cors-headers==2.2.0
